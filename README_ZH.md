@@ -1,4 +1,4 @@
-# cc-switch-web — Claude Code / Codex / Gemini 的 Web/无头助手
+# CC-Switch-Web — Claude Code / Codex / Gemini 的 Web/无头助手
 
 English | 中文 | [更新日志](CHANGELOG.md)
 
