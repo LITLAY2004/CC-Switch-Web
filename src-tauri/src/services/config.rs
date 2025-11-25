@@ -1,5 +1,6 @@
 use super::provider::ProviderService;
 use crate::app_config::{AppType, MultiAppConfig};
+use crate::config::atomic_write;
 use crate::error::AppError;
 use crate::provider::Provider;
 use crate::store::AppState;
@@ -32,7 +33,7 @@ impl ConfigService {
 
         let backup_path = backup_dir.join(format!("{backup_id}.json"));
         let contents = fs::read(config_path).map_err(|e| AppError::io(config_path, e))?;
-        fs::write(&backup_path, contents).map_err(|e| AppError::io(&backup_path, e))?;
+        atomic_write(&backup_path, &contents)?;
 
         Self::cleanup_old_backups(&backup_dir, MAX_BACKUPS)?;
 
@@ -89,7 +90,7 @@ impl ConfigService {
         let config_path = crate::config::get_app_config_path();
         let config_content =
             fs::read_to_string(&config_path).map_err(|e| AppError::io(&config_path, e))?;
-        fs::write(target_path, config_content).map_err(|e| AppError::io(target_path, e))
+        atomic_write(target_path, config_content.as_bytes())
     }
 
     /// 从磁盘文件加载配置并写回 config.json，返回备份 ID 及新配置。
@@ -103,7 +104,7 @@ impl ConfigService {
         let config_path = crate::config::get_app_config_path();
         let backup_id = Self::create_backup(&config_path)?;
 
-        fs::write(&config_path, &import_content).map_err(|e| AppError::io(&config_path, e))?;
+        atomic_write(&config_path, import_content.as_bytes())?;
 
         Ok((new_config, backup_id))
     }

@@ -13,11 +13,11 @@ use serde_json::Value;
 
 use crate::{
     app_config::{AppType, MultiAppConfig},
-    app_store,
+    app_store, codex_config,
     config::{
-        get_app_config_dir, get_app_config_path as resolve_app_config_path, get_claude_settings_path,
+        atomic_write, get_app_config_dir, get_app_config_path as resolve_app_config_path,
+        get_claude_settings_path,
     },
-    codex_config,
     error::AppError,
     gemini_config,
     services::ConfigService,
@@ -62,8 +62,8 @@ pub async fn export_config(
             .map_err(AppError::from)
             .map_err(ApiError::from)?
             .clone();
-        let value =
-            serde_json::to_value(cfg).map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        let value = serde_json::to_value(cfg)
+            .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         return Ok(Json(value));
     }
 
@@ -99,13 +99,16 @@ pub async fn import_config(
             .map_err(|e| ApiError::new(StatusCode::BAD_REQUEST, e.to_string()))?;
         let config_path = resolve_app_config_path();
         let backup_id = ConfigService::create_backup(&config_path).map_err(ApiError::from)?;
-        let parsed: MultiAppConfig = serde_json::from_value(body)
-            .map_err(|e| ApiError::bad_request(e.to_string()))?;
-        std::fs::write(&config_path, &content)
-            .map_err(|e| ApiError::from(AppError::io(&config_path, e)))?;
+        let parsed: MultiAppConfig =
+            serde_json::from_value(body).map_err(|e| ApiError::bad_request(e.to_string()))?;
+        atomic_write(&config_path, content.as_bytes()).map_err(ApiError::from)?;
 
         {
-            let mut guard = state.config.write().map_err(AppError::from).map_err(ApiError::from)?;
+            let mut guard = state
+                .config
+                .write()
+                .map_err(AppError::from)
+                .map_err(ApiError::from)?;
             *guard = parsed;
         }
 
@@ -127,8 +130,7 @@ pub async fn import_config(
         let backup_id = ConfigService::create_backup(&config_path).map_err(ApiError::from)?;
         let parsed: MultiAppConfig =
             serde_json::from_str(&content).map_err(|e| ApiError::bad_request(e.to_string()))?;
-        std::fs::write(&config_path, content)
-            .map_err(|e| ApiError::from(AppError::io(&config_path, e)))?;
+        atomic_write(&config_path, content.as_bytes()).map_err(ApiError::from)?;
         (parsed, backup_id)
     } else if let Some(file_path) = &payload.file_path {
         let path_buf = PathBuf::from(file_path);
@@ -138,7 +140,11 @@ pub async fn import_config(
     };
 
     {
-        let mut guard = state.config.write().map_err(AppError::from).map_err(ApiError::from)?;
+        let mut guard = state
+            .config
+            .write()
+            .map_err(AppError::from)
+            .map_err(ApiError::from)?;
         *guard = new_config;
     }
 
@@ -181,8 +187,7 @@ pub async fn open_config_folder(Path(app): Path<String>) -> ApiResult<bool> {
         AppType::Gemini => gemini_config::get_gemini_dir(),
     };
 
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| ApiError::from(AppError::io(&dir, e)))?;
+    std::fs::create_dir_all(&dir).map_err(|e| ApiError::from(AppError::io(&dir, e)))?;
     Ok(Json(true))
 }
 
@@ -195,9 +200,7 @@ pub async fn pick_directory() -> ApiResult<Option<String>> {
 
 pub async fn get_claude_code_config_path() -> ApiResult<String> {
     Ok(Json(
-        get_claude_settings_path()
-            .to_string_lossy()
-            .to_string(),
+        get_claude_settings_path().to_string_lossy().to_string(),
     ))
 }
 
@@ -209,8 +212,7 @@ pub async fn get_app_config_path() -> ApiResult<String> {
 
 pub async fn open_app_config_folder() -> ApiResult<bool> {
     let dir = get_app_config_dir();
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| ApiError::from(AppError::io(&dir, e)))?;
+    std::fs::create_dir_all(&dir).map_err(|e| ApiError::from(AppError::io(&dir, e)))?;
     Ok(Json(true))
 }
 
@@ -225,9 +227,7 @@ pub struct OverridePayload {
     pub path: Option<String>,
 }
 
-pub async fn set_app_config_dir_override(
-    Json(payload): Json<OverridePayload>,
-) -> ApiResult<bool> {
+pub async fn set_app_config_dir_override(Json(payload): Json<OverridePayload>) -> ApiResult<bool> {
     app_store::set_app_config_dir_override_standalone(payload.path.as_deref())
         .map_err(ApiError::from)?;
     Ok(Json(true))

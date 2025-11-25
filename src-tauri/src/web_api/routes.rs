@@ -6,12 +6,12 @@ use axum::{
 };
 
 use super::{
-    handlers::{config, mcp, providers, prompts, settings, skills, system},
-    serve_static, SharedState,
+    handlers::{config, mcp, prompts, providers, settings, skills, system},
+    SharedState,
 };
 
 pub fn create_router(state: SharedState) -> Router {
-    let api_routes = Router::new()
+    Router::new()
         .nest("/providers", provider_routes())
         .nest("/mcp", mcp_routes())
         .nest("/prompts", prompt_routes())
@@ -23,12 +23,7 @@ pub fn create_router(state: SharedState) -> Router {
         .route("/fs/pick-directory", post(config::pick_directory))
         .route("/fs/save-file", post(config::save_file_dialog))
         .route("/fs/open-file", post(config::open_file_dialog))
-        .with_state(state);
-
-    Router::new()
-        .nest("/api", api_routes)
-        .route("/", get(serve_static))
-        .route("/*path", get(serve_static))
+        .with_state(state)
 }
 
 fn provider_routes() -> Router<SharedState> {
@@ -43,18 +38,21 @@ fn provider_routes() -> Router<SharedState> {
             put(providers::update_provider).delete(providers::delete_provider),
         )
         .route("/:app/:id/switch", post(providers::switch_provider))
+        .route("/:app/:id/usage", post(providers::query_provider_usage))
+        .route("/:app/:id/usage/test", post(providers::test_usage_script))
         .route(
-            "/:app/:id/usage",
-            post(providers::query_provider_usage),
+            "/:app/import-default",
+            post(providers::import_default_config),
         )
-        .route(
-            "/:app/:id/usage/test",
-            post(providers::test_usage_script),
-        )
-        .route("/:app/import-default", post(providers::import_default_config))
         .route("/:app/sort-order", put(providers::update_sort_order))
-        .route("/:app/backup", get(providers::backup_provider).put(providers::set_backup_provider))
-        .route("/sync-current", post(providers::sync_current_providers_live))
+        .route(
+            "/:app/backup",
+            get(providers::backup_provider).put(providers::set_backup_provider),
+        )
+        .route(
+            "/sync-current",
+            post(providers::sync_current_providers_live),
+        )
 }
 
 fn mcp_routes() -> Router<SharedState> {
@@ -71,19 +69,13 @@ fn mcp_routes() -> Router<SharedState> {
             "/config/:app/servers/:id",
             put(mcp::upsert_server_in_config).delete(mcp::delete_server_in_config),
         )
-        .route(
-            "/config/:app/servers/:id/enabled",
-            post(mcp::set_enabled),
-        )
+        .route("/config/:app/servers/:id/enabled", post(mcp::set_enabled))
         .route("/servers", get(mcp::list_servers).post(mcp::upsert_server))
         .route(
             "/servers/:id",
             put(mcp::update_server).delete(mcp::delete_server),
         )
-        .route(
-            "/servers/:id/apps/:app",
-            post(mcp::toggle_app),
-        )
+        .route("/servers/:id/apps/:app", post(mcp::toggle_app))
 }
 
 fn prompt_routes() -> Router<SharedState> {
@@ -108,16 +100,25 @@ fn skill_routes() -> Router<SharedState> {
 }
 
 fn settings_routes() -> Router<SharedState> {
-    Router::new().route("/", get(settings::get_settings).put(settings::save_settings))
+    Router::new().route(
+        "/",
+        get(settings::get_settings).put(settings::save_settings),
+    )
 }
 
 fn config_routes() -> Router<SharedState> {
     Router::new()
-        .route("/export", get(config::export_config_snapshot).post(config::export_config))
+        .route(
+            "/export",
+            get(config::export_config_snapshot).post(config::export_config),
+        )
         .route("/import", post(config::import_config))
         .route("/:app/dir", get(config::get_config_dir))
         .route("/:app/open", post(config::open_config_folder))
-        .route("/claude-code/path", get(config::get_claude_code_config_path))
+        .route(
+            "/claude-code/path",
+            get(config::get_claude_code_config_path),
+        )
         .route("/app/path", get(config::get_app_config_path))
         .route("/app/open", post(config::open_app_config_folder))
         .route(
@@ -129,10 +130,7 @@ fn config_routes() -> Router<SharedState> {
             get(config::get_claude_common_config_snippet)
                 .put(config::set_claude_common_config_snippet),
         )
-        .route(
-            "/claude/plugin",
-            post(config::apply_claude_plugin_config),
-        )
+        .route("/claude/plugin", post(config::apply_claude_plugin_config))
         .route(
             "/:app/common-snippet",
             get(config::get_common_config_snippet).put(config::set_common_config_snippet),

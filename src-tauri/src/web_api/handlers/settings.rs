@@ -8,9 +8,7 @@ use crate::{settings, settings::AppSettings, store::AppState};
 
 use super::{ApiError, ApiResult};
 
-pub async fn get_settings(
-    State(_state): State<Arc<AppState>>,
-) -> ApiResult<AppSettings> {
+pub async fn get_settings(State(_state): State<Arc<AppState>>) -> ApiResult<AppSettings> {
     Ok(Json(settings::get_settings()))
 }
 

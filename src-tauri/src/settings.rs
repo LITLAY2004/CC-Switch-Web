@@ -4,7 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::{OnceLock, RwLock};
 
-use crate::error::AppError;
+use crate::{config::atomic_write, error::AppError};
 
 /// 自定义端点配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -157,7 +157,7 @@ impl AppSettings {
 
         let json = serde_json::to_string_pretty(&normalized)
             .map_err(|e| AppError::JsonSerialize { source: e })?;
-        fs::write(&path, json).map_err(|e| AppError::io(&path, e))?;
+        atomic_write(&path, json.as_bytes())?;
         Ok(())
     }
 }
@@ -186,15 +186,24 @@ fn resolve_override_path(raw: &str) -> PathBuf {
 }
 
 pub fn get_settings() -> AppSettings {
-    settings_store().read().expect("读取设置锁失败").clone()
+    settings_store()
+        .read()
+        .map(|g| g.clone())
+        .unwrap_or_else(|e| {
+            log::error!("读取设置锁失败，返回默认设置: {e}");
+            AppSettings::default()
+        })
 }
 
 pub fn update_settings(mut new_settings: AppSettings) -> Result<(), AppError> {
     new_settings.normalize_paths();
     new_settings.save()?;
 
-    let mut guard = settings_store().write().expect("写入设置锁失败");
-    *guard = new_settings;
+    if let Ok(mut guard) = settings_store().write() {
+        *guard = new_settings;
+    } else {
+        log::error!("写入设置锁失败，内存缓存可能未更新");
+    }
     Ok(())
 }
 

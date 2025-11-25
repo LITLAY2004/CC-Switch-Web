@@ -1,10 +1,16 @@
 use reqwest::Client;
 use rquickjs::{Context, Function, Runtime};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::time::Duration;
+use std::{
+    collections::HashMap,
+    env,
+    time::{Duration, Instant},
+};
 
 use crate::error::AppError;
+
+const JS_MEMORY_LIMIT_BYTES: usize = 32 * 1024 * 1024; // 32MB 上限，防止脚本占用过大内存
+const JS_MAX_STACK_SIZE: usize = 512 * 1024; // 512KB 调用栈
 
 /// 执行用量查询脚本
 pub async fn execute_usage_script(
@@ -28,15 +34,11 @@ pub async fn execute_usage_script(
         replaced = replaced.replace("{{userId}}", uid);
     }
 
+    let script_source = replaced; // 复用同一份字符串，避免重复 clone
+
     // 2. 在独立作用域中提取 request 配置（确保 Runtime/Context 在 await 前释放）
     let request_config = {
-        let runtime = Runtime::new().map_err(|e| {
-            AppError::localized(
-                "usage_script.runtime_create_failed",
-                format!("创建 JS 运行时失败: {e}"),
-                format!("Failed to create JS runtime: {e}"),
-            )
-        })?;
+        let runtime = build_sandboxed_runtime(timeout_secs)?;
         let context = Context::full(&runtime).map_err(|e| {
             AppError::localized(
                 "usage_script.context_create_failed",
@@ -47,7 +49,7 @@ pub async fn execute_usage_script(
 
         context.with(|ctx| {
             // 执行用户代码，获取配置对象
-            let config: rquickjs::Object = ctx.eval(replaced.clone()).map_err(|e| {
+            let config: rquickjs::Object = ctx.eval(script_source.as_str()).map_err(|e| {
                 AppError::localized(
                     "usage_script.config_parse_failed",
                     format!("解析配置失败: {e}"),
@@ -108,13 +110,7 @@ pub async fn execute_usage_script(
 
     // 5. 在独立作用域中执行 extractor（确保 Runtime/Context 在函数结束前释放）
     let result: Value = {
-        let runtime = Runtime::new().map_err(|e| {
-            AppError::localized(
-                "usage_script.runtime_create_failed",
-                format!("创建 JS 运行时失败: {e}"),
-                format!("Failed to create JS runtime: {e}"),
-            )
-        })?;
+        let runtime = build_sandboxed_runtime(timeout_secs)?;
         let context = Context::full(&runtime).map_err(|e| {
             AppError::localized(
                 "usage_script.context_create_failed",
@@ -125,7 +121,7 @@ pub async fn execute_usage_script(
 
         context.with(|ctx| {
             // 重新 eval 获取配置对象
-            let config: rquickjs::Object = ctx.eval(replaced.clone()).map_err(|e| {
+            let config: rquickjs::Object = ctx.eval(script_source.as_str()).map_err(|e| {
                 AppError::localized(
                     "usage_script.config_reparse_failed",
                     format!("重新解析配置失败: {e}"),
@@ -274,10 +270,7 @@ async fn send_http_request(config: &RequestConfig, timeout_secs: u64) -> Result<
                     "DNS resolution failed; please verify the domain name",
                 )
             } else {
-                (
-                    "无法连接到目标服务器",
-                    "Unable to connect to the server",
-                )
+                ("无法连接到目标服务器", "Unable to connect to the server")
             }
         } else if e.is_timeout() {
             (
@@ -310,11 +303,20 @@ async fn send_http_request(config: &RequestConfig, timeout_secs: u64) -> Result<
     })?;
 
     if !status.is_success() {
-        let preview = if text.len() > 200 {
-            format!("{}...", &text[..200])
+        let include_body = env::var("USAGE_SCRIPT_INCLUDE_BODY")
+            .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "on"))
+            .unwrap_or(cfg!(debug_assertions));
+
+        let preview = if include_body {
+            if text.len() > 200 {
+                format!("{}...", &text[..200])
+            } else {
+                text.clone()
+            }
         } else {
-            text.clone()
+            "<response body omitted>".to_string()
         };
+
         return Err(AppError::localized(
             "usage_script.http_error",
             format!("HTTP {status} : {preview}"),
@@ -323,6 +325,27 @@ async fn send_http_request(config: &RequestConfig, timeout_secs: u64) -> Result<
     }
 
     Ok(text)
+}
+
+fn build_sandboxed_runtime(timeout_secs: u64) -> Result<Runtime, AppError> {
+    let runtime = Runtime::new().map_err(|e| {
+        AppError::localized(
+            "usage_script.runtime_create_failed",
+            format!("创建 JS 运行时失败: {e}"),
+            format!("Failed to create JS runtime: {e}"),
+        )
+    })?;
+
+    // 设置内存、栈与 CPU 限制，避免脚本拖垮宿主
+    runtime.set_memory_limit(JS_MEMORY_LIMIT_BYTES);
+    runtime.set_max_stack_size(JS_MAX_STACK_SIZE);
+
+    let bounded = timeout_secs.clamp(2, 30);
+    let max_ms = bounded * 1_000;
+    let deadline = Instant::now() + Duration::from_millis(max_ms);
+    runtime.set_interrupt_handler(Some(Box::new(move || Instant::now() >= deadline)));
+
+    Ok(runtime)
 }
 
 /// 验证脚本返回值（支持单对象或数组）

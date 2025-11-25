@@ -56,26 +56,20 @@ pub async fn install_skill(
 
     if !skill.installed {
         let repo = SkillRepo {
-            owner: skill
-                .repo_owner
-                .clone()
-                .ok_or_else(|| {
-                    format_skill_error(
-                        "MISSING_REPO_INFO",
-                        &[("directory", &directory), ("field", "owner")],
-                        None,
-                    )
-                })?,
-            name: skill
-                .repo_name
-                .clone()
-                .ok_or_else(|| {
-                    format_skill_error(
-                        "MISSING_REPO_INFO",
-                        &[("directory", &directory), ("field", "name")],
-                        None,
-                    )
-                })?,
+            owner: skill.repo_owner.clone().ok_or_else(|| {
+                format_skill_error(
+                    "MISSING_REPO_INFO",
+                    &[("directory", &directory), ("field", "owner")],
+                    None,
+                )
+            })?,
+            name: skill.repo_name.clone().ok_or_else(|| {
+                format_skill_error(
+                    "MISSING_REPO_INFO",
+                    &[("directory", &directory), ("field", "name")],
+                    None,
+                )
+            })?,
             branch: skill
                 .repo_branch
                 .clone()

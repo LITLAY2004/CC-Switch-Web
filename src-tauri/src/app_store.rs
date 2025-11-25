@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::{OnceLock, RwLock};
 use tauri_plugin_store::StoreExt;
 
-use crate::error::AppError;
+use crate::{config::atomic_write, error::AppError};
 
 /// Store 中的键名
 const STORE_KEY_APP_CONFIG_DIR: &str = "app_config_dir_override";
@@ -170,10 +170,10 @@ fn read_override_from_disk() -> Option<PathBuf> {
 }
 
 /// 在无 Tauri 环境下（如 Web Server）设置 app_config_dir 覆盖路径并写入磁盘。
+#[allow(dead_code)]
 pub fn set_app_config_dir_override_standalone(path: Option<&str>) -> Result<(), AppError> {
-    let store_path = store_path().ok_or_else(|| {
-        AppError::Message("无法获取用户主目录以写入 app_paths.json".to_string())
-    })?;
+    let store_path = store_path()
+        .ok_or_else(|| AppError::Message("无法获取用户主目录以写入 app_paths.json".to_string()))?;
 
     let mut data: Value = if store_path.exists() {
         fs::read_to_string(&store_path)
@@ -214,7 +214,7 @@ pub fn set_app_config_dir_override_standalone(path: Option<&str>) -> Result<(), 
 
     let serialized = serde_json::to_string_pretty(&data)
         .map_err(|e| AppError::Message(format!("序列化 app_paths.json 失败: {e}")))?;
-    fs::write(&store_path, serialized).map_err(|e| AppError::io(&store_path, e))?;
+    atomic_write(&store_path, serialized.as_bytes())?;
 
     Ok(())
 }

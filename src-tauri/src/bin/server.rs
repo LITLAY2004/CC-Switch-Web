@@ -141,15 +141,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(3000);
 
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let addr: SocketAddr = format!("{host}:{port}")
-        .parse()
-        .unwrap_or_else(|_| {
-            log::warn!("Invalid HOST `{host}`, falling back to 127.0.0.1");
-            SocketAddr::from(([127, 0, 0, 1], port))
-        });
+    let addr: SocketAddr = format!("{host}:{port}").parse().unwrap_or_else(|_| {
+        log::warn!("Invalid HOST `{host}`, falling back to 127.0.0.1");
+        SocketAddr::from(([127, 0, 0, 1], port))
+    });
 
-    let allow_insecure =
-        env::var("ALLOW_HTTP_BASIC_OVER_HTTP").is_ok_and(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "on"));
+    let allow_insecure = env::var("ALLOW_HTTP_BASIC_OVER_HTTP")
+        .is_ok_and(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "on"));
     if addr.ip().is_unspecified() && !allow_insecure {
         log::warn!(
             "当前以 HTTP 监听 0.0.0.0，Basic/Bearer 凭证可能被截获。如需公开，请在反向代理中终止 TLS 并设置 ALLOW_HTTP_BASIC_OVER_HTTP=1"
@@ -172,7 +170,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let listener = TcpListener::bind(addr).await?;
-    serve(listener, app)
+    serve(listener, app.into_make_service())
         .with_graceful_shutdown(shutdown_signal())
         .await?;
 

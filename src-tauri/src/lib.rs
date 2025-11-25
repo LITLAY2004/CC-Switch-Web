@@ -489,9 +489,16 @@ pub fn run() {
                     use objc2::runtime::AnyObject;
                     use objc2_app_kit::NSColor;
 
-                    let ns_window_ptr = window.ns_window().unwrap();
-                    let ns_window: Retained<AnyObject> =
-                        unsafe { Retained::retain(ns_window_ptr as *mut AnyObject).unwrap() };
+                    let Some(ns_window_ptr) = window.ns_window() else {
+                        log::warn!("无法获取主窗口句柄，跳过 macOS 外观设置");
+                        return Ok(());
+                    };
+                    let Some(ns_window) =
+                        (unsafe { Retained::retain(ns_window_ptr as *mut AnyObject) })
+                    else {
+                        log::warn!("Retain 主窗口句柄失败，跳过 macOS 外观设置");
+                        return Ok(());
+                    };
 
                     // 使用与主界面 banner 相同的蓝色 #3498db
                     // #3498db = RGB(52, 152, 219)
@@ -553,10 +560,11 @@ pub fn run() {
             }
 
             // 确保配置结构就绪（已移除旧版本的副本迁移逻辑）
-            {
-                let mut config_guard = app_state.config.write().unwrap();
+            if let Ok(mut config_guard) = app_state.config.write() {
                 config_guard.ensure_app(&app_config::AppType::Claude);
                 config_guard.ensure_app(&app_config::AppType::Codex);
+            } else {
+                log::error!("初始化配置锁失败，跳过 ensure_app");
             }
 
             // 启动阶段不再无条件保存,避免意外覆盖用户配置。
@@ -611,7 +619,11 @@ pub fn run() {
                 .show_menu_on_left_click(true);
 
             // 统一使用应用默认图标；待托盘模板图标就绪后再启用
-            tray_builder = tray_builder.icon(app.default_window_icon().unwrap().clone());
+            if let Some(icon) = app.default_window_icon() {
+                tray_builder = tray_builder.icon(icon.clone());
+            } else {
+                log::warn!("未获取到默认图标，托盘将使用系统默认样式");
+            }
 
             let _tray = tray_builder.build(app)?;
             // 将同一个实例注入到全局状态，避免重复创建导致的不一致

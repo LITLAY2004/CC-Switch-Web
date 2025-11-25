@@ -1,31 +1,28 @@
 #![cfg(feature = "web-server")]
 
-use std::{
-    env,
-    sync::Arc,
-};
+use std::{env, fs, path::PathBuf, sync::Arc};
 
 use axum::{
     body::Body,
-    extract::{Path, State},
-    middleware,
+    extract::Path,
     http::{
-        header::{self, ACCEPT, AUTHORIZATION, CONTENT_TYPE, STRICT_TRANSPORT_SECURITY, WWW_AUTHENTICATE},
+        header::{
+            self, ACCEPT, AUTHORIZATION, CONTENT_TYPE, STRICT_TRANSPORT_SECURITY, WWW_AUTHENTICATE,
+        },
         HeaderValue, Method, Request, StatusCode,
     },
+    middleware,
     response::{IntoResponse, Response},
+    routing::get,
     Router,
 };
 use base64::Engine;
 use mime_guess::mime;
 use rust_embed::RustEmbed;
 use std::sync::Arc as StdArc;
-use tower_http::{
-    cors::CorsLayer,
-    validate_request::ValidateRequestHeaderLayer,
-};
+use tower_http::{cors::CorsLayer, validate_request::ValidateRequestHeaderLayer};
 
-use crate::store::AppState;
+use crate::{config::atomic_write, store::AppState};
 
 pub mod handlers;
 pub mod routes;
@@ -37,8 +34,14 @@ pub type SharedState = Arc<AppState>;
 #[folder = "../dist-web"]
 struct WebAssets;
 
+#[derive(Clone)]
+struct WebTokens {
+    api_token: String,
+    csrf_token: String,
+}
+
 /// Serve embedded static assets with index.html fallback for SPA routes.
-pub async fn serve_static(path: Option<Path<String>>) -> impl IntoResponse {
+async fn serve_static(path: Option<Path<String>>, tokens: Arc<WebTokens>) -> impl IntoResponse {
     let requested_path = path.map(|Path(p)| p).unwrap_or_default();
     let requested_path = requested_path.trim_start_matches('/');
     let target_path = if requested_path.is_empty() {
@@ -57,7 +60,30 @@ pub async fn serve_static(path: Option<Path<String>>) -> impl IntoResponse {
     };
 
     let mime = mime_guess::from_path(served_path).first_or(mime::APPLICATION_OCTET_STREAM);
-    let body = Body::from(asset.data.into_owned());
+    let mut content = asset.data.into_owned();
+
+    if served_path == "index.html" {
+        if let Ok(mut html) = String::from_utf8(content.clone()) {
+            let injection = format!(
+                r#"<script>
+window.__CC_SWITCH_TOKENS__ = {{
+  apiToken: "{api}",
+  csrfToken: "{csrf}"
+}};
+</script>"#,
+                api = tokens.api_token,
+                csrf = tokens.csrf_token
+            );
+            if let Some(pos) = html.find("</head>") {
+                html.insert_str(pos, &injection);
+            } else {
+                html.push_str(&injection);
+            }
+            content = html.into_bytes();
+        }
+    }
+
+    let body = Body::from(content);
 
     let mut response = Response::new(body);
     response.headers_mut().insert(
@@ -119,36 +145,24 @@ fn cors_layer() -> CorsLayer {
 
 /// Construct the axum router with all API routes and middleware.
 pub fn create_router(state: SharedState, password: String) -> Router {
-    let api_token = env::var("WEB_API_TOKEN").ok().unwrap_or_else(|| password.clone());
-    let csrf_token = env::var("WEB_CSRF_TOKEN").ok();
+    let tokens = Arc::new(load_or_generate_tokens());
+
     let hsts_enabled = env::var("ENABLE_HSTS")
         .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "on"))
         .unwrap_or(true);
 
-    if env::var("WEB_API_TOKEN").is_err() {
-        log::warn!("WEB_API_TOKEN 未设置，Bearer Token 将默认等同于密码（建议单独设置并关闭浏览器自动填充）");
-    }
-    if csrf_token.is_none() {
-        log::warn!("WEB_CSRF_TOKEN 未设置，将对跨站提交只依赖浏览器策略；推荐设置并在前端携带 X-CSRF-Token");
-    }
-
-    let auth_validator = AuthValidator::new(password, Some(api_token.clone()), csrf_token.clone());
-
-    let max_concurrency = env::var("WEB_MAX_CONCURRENCY")
-        .ok()
-        .and_then(|v| v.parse::<usize>().ok())
-        .unwrap_or(64);
-    let rate_limit = env::var("WEB_RATE_LIMIT_PER_MIN")
-        .ok()
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(300);
+    let auth_validator = AuthValidator::new(
+        password,
+        Some(tokens.api_token.clone()),
+        Some(tokens.csrf_token.clone()),
+    );
 
     let router = routes::create_router(state)
         .layer(ValidateRequestHeaderLayer::custom(auth_validator))
-        .layer(middleware::from_fn_with_state(
-            hsts_enabled,
-            add_hsts_header,
-        ));
+        .layer(middleware::from_fn({
+            let hsts_enabled = hsts_enabled;
+            move |req, next| add_hsts_header(hsts_enabled, req, next)
+        }));
 
     // Only apply CORS when explicitly configured via env; default to same-origin.
     let router = if env::var("CORS_ALLOW_ORIGINS").is_ok() {
@@ -157,7 +171,22 @@ pub fn create_router(state: SharedState, password: String) -> Router {
         router
     };
 
-    router
+    Router::new()
+        .nest("/api", router)
+        .route(
+            "/",
+            get({
+                let tokens = tokens.clone();
+                move |path| serve_static(path, tokens.clone())
+            }),
+        )
+        .route(
+            "/*path",
+            get({
+                let tokens = tokens.clone();
+                move |path| serve_static(path, tokens.clone())
+            }),
+        )
 }
 
 #[derive(Clone)]
@@ -180,7 +209,11 @@ impl AuthValidator {
 
     fn is_authorized(&self, auth_value: &str) -> bool {
         if let Some(token) = self.bearer.as_ref() {
-            if auth_value.trim_start().to_ascii_lowercase().starts_with("bearer") {
+            if auth_value
+                .trim_start()
+                .to_ascii_lowercase()
+                .starts_with("bearer")
+            {
                 return auth_value
                     .split_once(' ')
                     .map(|(_, v)| v == token.as_ref())
@@ -194,7 +227,8 @@ impl AuthValidator {
             {
                 if let Ok(s) = String::from_utf8(decoded) {
                     if let Some((user, pass)) = s.split_once(':') {
-                        return user == self.basic_user.as_str() && pass == self.basic_pass.as_str();
+                        return user == self.basic_user.as_str()
+                            && pass == self.basic_pass.as_str();
                     }
                 }
             }
@@ -225,7 +259,10 @@ impl AuthValidator {
 impl tower_http::validate_request::ValidateRequest<Body> for AuthValidator {
     type ResponseBody = Body;
 
-    fn validate(&mut self, request: &mut Request<Body>) -> Result<(), Response<Self::ResponseBody>> {
+    fn validate(
+        &mut self,
+        request: &mut Request<Body>,
+    ) -> Result<(), Response<Self::ResponseBody>> {
         let Some(auth_header) = request
             .headers()
             .get(AUTHORIZATION)
@@ -255,16 +292,88 @@ impl tower_http::validate_request::ValidateRequest<Body> for AuthValidator {
 }
 
 async fn add_hsts_header(
-    State(enabled): State<bool>,
+    hsts_enabled: bool,
     req: Request<Body>,
     next: middleware::Next,
 ) -> Response {
     let mut res = next.run(req).await;
-    if enabled {
+    if hsts_enabled {
         let value = HeaderValue::from_static("max-age=31536000; includeSubDomains");
         res.headers_mut()
             .entry(STRICT_TRANSPORT_SECURITY)
             .or_insert(value);
     }
     res
+}
+
+fn token_store_path() -> Option<PathBuf> {
+    dirs::home_dir().map(|home| home.join(".cc-switch").join("web_env"))
+}
+
+fn load_or_generate_tokens() -> WebTokens {
+    let env_api = env::var("WEB_API_TOKEN").ok();
+    let env_csrf = env::var("WEB_CSRF_TOKEN").ok();
+
+    if let Some(api) = env_api {
+        let csrf = env_csrf.unwrap_or_else(|| generate_token(16));
+        return WebTokens {
+            api_token: api,
+            csrf_token: csrf,
+        };
+    }
+
+    if let Some(path) = token_store_path() {
+        if let Ok(content) = fs::read_to_string(&path) {
+            let mut api = None;
+            let mut csrf = None;
+            for line in content.lines() {
+                if let Some(val) = line.strip_prefix("WEB_API_TOKEN=") {
+                    api = Some(val.trim().to_string());
+                } else if let Some(val) = line.strip_prefix("WEB_CSRF_TOKEN=") {
+                    csrf = Some(val.trim().to_string());
+                }
+            }
+            if let Some(api_val) = api {
+                let csrf_val = csrf.unwrap_or_else(|| generate_token(16));
+                return WebTokens {
+                    api_token: api_val,
+                    csrf_token: csrf_val,
+                };
+            }
+        }
+
+        let api = generate_token(48);
+        let csrf = env_csrf.unwrap_or_else(|| generate_token(16));
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let _ = atomic_write(
+            &path,
+            format!("WEB_API_TOKEN={api}\nWEB_CSRF_TOKEN={csrf}\n").as_bytes(),
+        );
+        log::info!(
+            "WEB_API_TOKEN/WEB_CSRF_TOKEN 已生成并写入 {}",
+            path.display()
+        );
+        WebTokens {
+            api_token: api,
+            csrf_token: csrf,
+        }
+    } else {
+        let api = generate_token(48);
+        let csrf = env_csrf.unwrap_or_else(|| generate_token(16));
+        WebTokens {
+            api_token: api,
+            csrf_token: csrf,
+        }
+    }
+}
+
+fn generate_token(len: usize) -> String {
+    use rand::{distributions::Alphanumeric, thread_rng, Rng};
+    thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(len)
+        .map(char::from)
+        .collect()
 }

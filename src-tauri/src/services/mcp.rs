@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::app_config::{AppType, McpServer, MultiAppConfig};
+use crate::app_config::{AppType, McpApps, McpServer, MultiAppConfig};
 use crate::error::AppError;
 use crate::mcp;
 use crate::store::AppState;
@@ -14,7 +14,54 @@ impl McpService {
         let cfg = state.config.read()?;
 
         // 新结构：空表示尚未配置任何 MCP 服务器，返回空 Map 而不是报错，避免初始加载失败。
-        Ok(cfg.mcp.servers.clone().unwrap_or_default())
+        let mut servers = cfg.mcp.servers.clone().unwrap_or_default();
+
+        // 兼容旧结构：如果旧的分应用配置仍有启用项，则合并到统一结构并标记对应 app。
+        let mut merge_legacy = |legacy: &crate::app_config::McpConfig, app: &AppType| {
+            for (id, entry) in legacy.servers.iter() {
+                let enabled = entry
+                    .get("enabled")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                if !enabled {
+                    continue;
+                }
+
+                // 旧结构可能以 { enabled, server: {...} } 存储，也可能直接是 server 规范
+                let spec = entry
+                    .get("server")
+                    .cloned()
+                    .unwrap_or_else(|| entry.clone());
+
+                if let Some(existing) = servers.get_mut(id) {
+                    existing.apps.set_enabled_for(app, true);
+                } else {
+                    servers.insert(
+                        id.clone(),
+                        McpServer {
+                            id: id.clone(),
+                            name: id.clone(),
+                            server: spec.clone(),
+                            apps: {
+                                let mut apps = McpApps::default();
+                                apps.set_enabled_for(app, true);
+                                apps
+                            },
+                            description: None,
+                            homepage: None,
+                            docs: None,
+                            tags: Vec::new(),
+                        },
+                    );
+                }
+            }
+        };
+
+        merge_legacy(&cfg.mcp.claude, &AppType::Claude);
+        merge_legacy(&cfg.mcp.codex, &AppType::Codex);
+        merge_legacy(&cfg.mcp.gemini, &AppType::Gemini);
+
+        Ok(servers)
     }
 
     /// 添加或更新 MCP 服务器
