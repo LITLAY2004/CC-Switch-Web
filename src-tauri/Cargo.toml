@@ -6,7 +6,7 @@ authors = ["Jason Young"]
 license = "MIT"
 repository = "https://github.com/farion1231/cc-switch"
 edition = "2021"
-rust-version = "1.85.0"
+rust-version = "1.83.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -55,6 +55,8 @@ tower-http = { version = "0.5", features = ["auth", "cors", "fs"], optional = tr
 rust-embed = { version = "8", optional = true }
 mime_guess = { version = "2", optional = true }
 rand = { version = "0.8", optional = true }
+tower = { version = "0.4", features = ["limit"] }
+base64 = "0.22"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2"
