@@ -7,13 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-11-25
+
 ### Added
 - Linux 一键安装脚本 `scripts/install.sh`：自动选择架构下载 release 资产、可选 SHA256 校验、安装到用户或系统 bin，并生成 `.desktop` 与图标。
+- GitHub Actions CI 工作流：支持 Ubuntu、Windows、macOS 三平台自动化测试。
 
 ### Fixed
+- **跨平台兼容性修复**：
+  - macOS：修复 Tauri 2.x API 变更导致的编译错误（`window.ns_window()` 返回类型从 `Option` 变为 `Result`）。
+  - Windows CI：添加 `dist-web` 占位目录，修复 RustEmbed 在 CI 环境下的编译错误。
+  - Windows 测试隔离：新增 `get_home_dir()` 函数，在 Windows 上优先检查 `HOME`/`USERPROFILE` 环境变量，修复 4 个 `app_config` 测试因 `dirs::home_dir()` 忽略环境变量而失败的问题。
 - UsageFooter 补充 `backupProviderId` / `onAutoFailover` 入参类型，恢复自动故障切换渲染与类型检查。
-- 非 Windows 删除 system 环境变量时改为最佳努力移除当前进程变量，避免“删除成功”但仍提示冲突的误导。
+- 非 Windows 删除 system 环境变量时改为最佳努力移除当前进程变量，避免"删除成功"但仍提示冲突的误导。
 - MCP：统一读取旧分应用结构的启用项，切换 Codex 供应商时同步到 `config.toml`，修复测试失败。
+
+### Changed
+- 版本号更新至 `0.1.1`。
 
 ## [0.1.0] - 2025-11-25
 
