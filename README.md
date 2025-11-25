@@ -1,4 +1,4 @@
-# cc-switch-web — Web/Headless Assistant for Claude Code, Codex & Gemini CLI
+# CC-Switch-Web — Web/Headless Assistant for Claude Code, Codex & Gemini CLI
 
 English | [中文](README_ZH.md) | [Changelog](CHANGELOG.md)
 
