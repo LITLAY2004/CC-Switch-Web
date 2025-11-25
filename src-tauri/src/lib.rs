@@ -489,7 +489,7 @@ pub fn run() {
                     use objc2::runtime::AnyObject;
                     use objc2_app_kit::NSColor;
 
-                    let Some(ns_window_ptr) = window.ns_window() else {
+                    let Ok(ns_window_ptr) = window.ns_window() else {
                         log::warn!("无法获取主窗口句柄，跳过 macOS 外观设置");
                         return Ok(());
                     };
