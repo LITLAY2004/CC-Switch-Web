@@ -1,0 +1,140 @@
+#![cfg(feature = "web-server")]
+
+use axum::{
+    routing::{delete, get, post, put},
+    Router,
+};
+
+use super::{
+    handlers::{config, mcp, providers, prompts, settings, skills, system},
+    serve_static, SharedState,
+};
+
+pub fn create_router(state: SharedState) -> Router {
+    let api_routes = Router::new()
+        .nest("/providers", provider_routes())
+        .nest("/mcp", mcp_routes())
+        .nest("/prompts", prompt_routes())
+        .nest("/skills", skill_routes())
+        .nest("/settings", settings_routes())
+        .nest("/config", config_routes())
+        .route("/tray/update", post(system::update_tray))
+        .route("/system/open-external", post(system::open_external))
+        .route("/fs/pick-directory", post(config::pick_directory))
+        .route("/fs/save-file", post(config::save_file_dialog))
+        .route("/fs/open-file", post(config::open_file_dialog))
+        .with_state(state);
+
+    Router::new()
+        .nest("/api", api_routes)
+        .route("/", get(serve_static))
+        .route("/*path", get(serve_static))
+}
+
+fn provider_routes() -> Router<SharedState> {
+    Router::new()
+        .route(
+            "/:app",
+            get(providers::list_providers).post(providers::add_provider),
+        )
+        .route("/:app/current", get(providers::current_provider))
+        .route(
+            "/:app/:id",
+            put(providers::update_provider).delete(providers::delete_provider),
+        )
+        .route("/:app/:id/switch", post(providers::switch_provider))
+        .route(
+            "/:app/:id/usage",
+            post(providers::query_provider_usage),
+        )
+        .route(
+            "/:app/:id/usage/test",
+            post(providers::test_usage_script),
+        )
+        .route("/:app/import-default", post(providers::import_default_config))
+        .route("/:app/sort-order", put(providers::update_sort_order))
+        .route("/:app/backup", get(providers::backup_provider).put(providers::set_backup_provider))
+        .route("/sync-current", post(providers::sync_current_providers_live))
+}
+
+fn mcp_routes() -> Router<SharedState> {
+    Router::new()
+        .route("/status", get(mcp::get_status))
+        .route("/config/claude", get(mcp::read_config))
+        .route(
+            "/config/claude/servers/:id",
+            put(mcp::upsert_claude_server).delete(mcp::delete_claude_server),
+        )
+        .route("/validate", post(mcp::validate_command))
+        .route("/config/:app", get(mcp::get_config))
+        .route(
+            "/config/:app/servers/:id",
+            put(mcp::upsert_server_in_config).delete(mcp::delete_server_in_config),
+        )
+        .route(
+            "/config/:app/servers/:id/enabled",
+            post(mcp::set_enabled),
+        )
+        .route("/servers", get(mcp::list_servers).post(mcp::upsert_server))
+        .route(
+            "/servers/:id",
+            put(mcp::update_server).delete(mcp::delete_server),
+        )
+        .route(
+            "/servers/:id/apps/:app",
+            post(mcp::toggle_app),
+        )
+}
+
+fn prompt_routes() -> Router<SharedState> {
+    Router::new()
+        .route("/:app", get(prompts::list_prompts))
+        .route(
+            "/:app/:id",
+            put(prompts::upsert_prompt).delete(prompts::delete_prompt),
+        )
+        .route("/:app/:id/enable", post(prompts::enable_prompt))
+        .route("/:app/import-from-file", post(prompts::import_from_file))
+        .route("/:app/current-file", get(prompts::current_file_content))
+}
+
+fn skill_routes() -> Router<SharedState> {
+    Router::new()
+        .route("/", get(skills::list_skills))
+        .route("/install", post(skills::install_skill))
+        .route("/uninstall", post(skills::uninstall_skill))
+        .route("/repos", get(skills::list_repos).post(skills::add_repo))
+        .route("/repos/:owner/:name", delete(skills::remove_repo))
+}
+
+fn settings_routes() -> Router<SharedState> {
+    Router::new().route("/", get(settings::get_settings).put(settings::save_settings))
+}
+
+fn config_routes() -> Router<SharedState> {
+    Router::new()
+        .route("/export", get(config::export_config_snapshot).post(config::export_config))
+        .route("/import", post(config::import_config))
+        .route("/:app/dir", get(config::get_config_dir))
+        .route("/:app/open", post(config::open_config_folder))
+        .route("/claude-code/path", get(config::get_claude_code_config_path))
+        .route("/app/path", get(config::get_app_config_path))
+        .route("/app/open", post(config::open_app_config_folder))
+        .route(
+            "/app/override",
+            get(config::get_app_config_dir_override).put(config::set_app_config_dir_override),
+        )
+        .route(
+            "/claude/common-snippet",
+            get(config::get_claude_common_config_snippet)
+                .put(config::set_claude_common_config_snippet),
+        )
+        .route(
+            "/claude/plugin",
+            post(config::apply_claude_plugin_config),
+        )
+        .route(
+            "/:app/common-snippet",
+            get(config::get_common_config_snippet).put(config::set_common_config_snippet),
+        )
+}

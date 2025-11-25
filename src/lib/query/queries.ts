@@ -32,6 +32,7 @@ const sortProviders = (
 export interface ProvidersQueryData {
   providers: Record<string, Provider>;
   currentProviderId: string;
+  backupProviderId: string | null;
 }
 
 export const useProvidersQuery = (
@@ -43,6 +44,7 @@ export const useProvidersQuery = (
     queryFn: async () => {
       let providers: Record<string, Provider> = {};
       let currentProviderId = "";
+      let backupProviderId: string | null = null;
 
       try {
         providers = await providersApi.getAll(appId);
@@ -54,6 +56,12 @@ export const useProvidersQuery = (
         currentProviderId = await providersApi.getCurrent(appId);
       } catch (error) {
         console.error("获取当前供应商失败:", error);
+      }
+
+      try {
+        backupProviderId = await providersApi.getBackup(appId);
+      } catch (error) {
+        console.error("获取备用供应商失败:", error);
       }
 
       if (Object.keys(providers).length === 0) {
@@ -71,6 +79,7 @@ export const useProvidersQuery = (
       return {
         providers: sortProviders(providers),
         currentProviderId,
+        backupProviderId,
       };
     },
   });

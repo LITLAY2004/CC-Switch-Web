@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { listen } from "@tauri-apps/api/event";
 import { DeepLinkImportRequest, deeplinkApi } from "@/lib/api/deeplink";
 import {
   Dialog,
@@ -13,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
+import { isWeb } from "@/lib/api/adapter";
 
 interface DeeplinkError {
   url: string;
@@ -27,23 +27,38 @@ export function DeepLinkImportDialog() {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
+    if (isWeb()) {
+      return;
+    }
+
     // Listen for deep link import events
-    const unlistenImport = listen<DeepLinkImportRequest>(
-      "deeplink-import",
-      (event) => {
-        console.log("Deep link import event received:", event.payload);
-        setRequest(event.payload);
-        setIsOpen(true);
-      },
-    );
+    const unlistenImport = import("@tauri-apps/api/event")
+      .then(({ listen }) =>
+        listen<DeepLinkImportRequest>("deeplink-import", (event) => {
+          console.log("Deep link import event received:", event.payload);
+          setRequest(event.payload);
+          setIsOpen(true);
+        }),
+      )
+      .catch((error) => {
+        console.error("Failed to subscribe deeplink-import", error);
+        return () => {};
+      });
 
     // Listen for deep link error events
-    const unlistenError = listen<DeeplinkError>("deeplink-error", (event) => {
-      console.error("Deep link error:", event.payload);
-      toast.error(t("deeplink.parseError"), {
-        description: event.payload.error,
+    const unlistenError = import("@tauri-apps/api/event")
+      .then(({ listen }) =>
+        listen<DeeplinkError>("deeplink-error", (event) => {
+          console.error("Deep link error:", event.payload);
+          toast.error(t("deeplink.parseError"), {
+            description: event.payload.error,
+          });
+        }),
+      )
+      .catch((error) => {
+        console.error("Failed to subscribe deeplink-error", error);
+        return () => {};
       });
-    });
 
     return () => {
       unlistenImport.then((fn) => fn());

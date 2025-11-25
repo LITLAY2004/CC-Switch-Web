@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import type {
   McpConfigResponse,
   McpServer,
@@ -6,6 +5,7 @@ import type {
   McpServersMap,
   McpStatus,
 } from "@/types";
+import { invoke } from "./adapter";
 import type { AppId } from "./types";
 
 export const mcpApi = {

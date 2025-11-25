@@ -21,6 +21,7 @@ interface DragHandleProps {
 interface ProviderCardProps {
   provider: Provider;
   isCurrent: boolean;
+  backupProviderId?: string | null;
   appId: AppId;
   isEditMode?: boolean;
   onSwitch: (provider: Provider) => void;
@@ -29,6 +30,7 @@ interface ProviderCardProps {
   onConfigureUsage: (provider: Provider) => void;
   onOpenWebsite: (url: string) => void;
   onDuplicate: (provider: Provider) => void;
+  onAutoFailover?: (targetId: string) => void;
   dragHandleProps?: DragHandleProps;
 }
 
@@ -70,6 +72,7 @@ const extractApiUrl = (provider: Provider, fallbackText: string) => {
 export function ProviderCard({
   provider,
   isCurrent,
+  backupProviderId,
   appId,
   isEditMode = false,
   onSwitch,
@@ -78,6 +81,7 @@ export function ProviderCard({
   onConfigureUsage,
   onOpenWebsite,
   onDuplicate,
+  onAutoFailover,
   dragHandleProps,
 }: ProviderCardProps) {
   const { t } = useTranslation();
@@ -217,6 +221,8 @@ export function ProviderCard({
             appId={appId}
             usageEnabled={usageEnabled}
             isCurrent={isCurrent}
+            backupProviderId={backupProviderId ?? null}
+            onAutoFailover={onAutoFailover}
             inline={true}
           />
 

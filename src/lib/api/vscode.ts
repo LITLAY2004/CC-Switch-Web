@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./adapter";
 import type { CustomEndpoint } from "@/types";
 import type { AppId } from "./types";
 

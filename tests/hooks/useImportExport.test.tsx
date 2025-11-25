@@ -107,7 +107,9 @@ describe("useImportExport Hook", () => {
       await result.current.importConfig();
     });
 
-    expect(importConfigMock).toHaveBeenCalledWith("/config.json");
+    expect(importConfigMock).toHaveBeenCalled();
+    const [filePath] = importConfigMock.mock.calls.at(-1) ?? [];
+    expect(filePath).toBe("/config.json");
     expect(result.current.status).toBe("success");
     expect(result.current.backupId).toBe("backup-123");
     expect(toastSuccessMock).toHaveBeenCalledTimes(1);

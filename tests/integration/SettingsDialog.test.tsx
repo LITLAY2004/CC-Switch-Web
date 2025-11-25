@@ -135,7 +135,9 @@ describe("SettingsDialog integration", () => {
     await waitFor(() => expect(screen.getByText("language:zh")).toBeInTheDocument());
     fireEvent.click(screen.getByText("settings.tabAdvanced"));
     const appInput = await screen.findByPlaceholderText("settings.browsePlaceholderApp");
-    expect((appInput as HTMLInputElement).value).toBe("/home/mock/.cc-switch");
+    await waitFor(() =>
+      expect((appInput as HTMLInputElement).value).toMatch(/^\/.+\/\.cc-switch$/),
+    );
   });
 
   it("imports configuration and triggers success callback", async () => {

@@ -57,6 +57,13 @@ impl Provider {
 pub struct ProviderManager {
     pub providers: HashMap<String, Provider>,
     pub current: String,
+    /// 备用供应商 ID（可选）
+    #[serde(
+        default,
+        rename = "backupCurrent",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub backup_current: Option<String>,
 }
 
 /// 用量查询脚本配置

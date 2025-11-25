@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./adapter";
 import type { UsageResult } from "@/types";
 import type { AppId } from "./types";
 import i18n from "@/i18n";

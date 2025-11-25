@@ -1,12 +1,17 @@
 node_modules/
 dist/
+dist-web/
 release/
+target/
+src-tauri/target/
 .DS_Store
 *.log
+*.tmp
 .env
 .env.local
 *.tsbuildinfo
 .npmrc
+*.AppImage
 CLAUDE.md
 AGENTS.md
 GEMINI.md

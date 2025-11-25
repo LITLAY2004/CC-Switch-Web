@@ -59,7 +59,11 @@ describe("useDirectorySettings", () => {
 
     getAppConfigDirOverrideMock.mockResolvedValue(null);
     getConfigDirMock.mockImplementation(async (app: string) =>
-      app === "claude" ? "/remote/claude" : "/remote/codex",
+      app === "claude"
+        ? "/remote/claude"
+        : app === "codex"
+          ? "/remote/codex"
+          : "/remote/gemini",
     );
     selectConfigDirectoryMock.mockReset();
   });
@@ -78,6 +82,7 @@ describe("useDirectorySettings", () => {
       appConfig: "/override/app",
       claude: "/remote/claude",
       codex: "/remote/codex",
+      gemini: "/remote/gemini",
     });
   });
 

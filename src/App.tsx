@@ -34,6 +34,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 function App() {
@@ -55,6 +62,7 @@ function App() {
   const { data, isLoading, refetch } = useProvidersQuery(activeApp);
   const providers = useMemo(() => data?.providers ?? {}, [data]);
   const currentProviderId = data?.currentProviderId ?? "";
+  const backupProviderId = data?.backupProviderId ?? null;
 
   // 🎯 使用 useProviderActions Hook 统一管理所有 Provider 操作
   const {
@@ -166,6 +174,54 @@ function App() {
     if (!confirmDelete) return;
     await deleteProvider(confirmDelete.id);
     setConfirmDelete(null);
+  };
+
+  // 设置备用供应商
+  const handleSetBackup = async (id: string | null) => {
+    try {
+      await providersApi.setBackup(id, activeApp);
+      await refetch();
+      const name = id ? providers[id]?.name ?? id : t("common.none");
+      toast.success(
+        t("provider.backupUpdated", {
+          defaultValue: "已更新备用供应商为 {{name}}",
+          name,
+        }),
+      );
+    } catch (error) {
+      const detail = extractErrorMessage(error) || t("common.unknown");
+      toast.error(
+        t("provider.backupUpdateFailed", {
+          defaultValue: "备用供应商更新失败：{{error}}",
+          error: detail,
+        }),
+      );
+    }
+  };
+
+  // 自动故障切换
+  const handleAutoFailover = async (targetId: string) => {
+    const targetProvider = providers[targetId];
+    if (!targetProvider) return;
+
+    try {
+      await switchProvider(targetProvider);
+      await refetch();
+      toast.warning(
+        t("provider.autoFailover", {
+          defaultValue: "已自动切换到备用供应商：{{name}}",
+          name: targetProvider.name,
+        }),
+      );
+    } catch (error) {
+      const detail = extractErrorMessage(error) || t("common.unknown");
+      toast.error(
+        t("provider.autoFailoverFailed", {
+          defaultValue: "自动切换备用失败：{{error}}",
+          error: detail,
+        }),
+      );
+    }
   };
 
   // 复制供应商
@@ -295,6 +351,36 @@ function App() {
 
           <div className="flex flex-wrap items-center gap-2">
             <AppSwitcher activeApp={activeApp} onSwitch={setActiveApp} />
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {t("provider.backupLabel", { defaultValue: "备用" })}
+              </span>
+              <Select
+                value={backupProviderId ?? "none"}
+                onValueChange={(val) => {
+                  const next = val === "none" ? null : val;
+                  void handleSetBackup(next);
+                }}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue
+                    placeholder={t("provider.backupPlaceholder", {
+                      defaultValue: "选择备用供应商",
+                    })}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    {t("common.none", { defaultValue: "无" })}
+                  </SelectItem>
+                  {Object.values(providers).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button
               variant="mcp"
               onClick={() => setIsPromptOpen(true)}
@@ -329,6 +415,7 @@ function App() {
           <ProviderList
             providers={providers}
             currentProviderId={currentProviderId}
+            backupProviderId={backupProviderId}
             appId={activeApp}
             isLoading={isLoading}
             isEditMode={isEditMode}
@@ -339,6 +426,7 @@ function App() {
             onConfigureUsage={setUsageProvider}
             onOpenWebsite={handleOpenWebsite}
             onCreate={() => setIsAddOpen(true)}
+            onAutoFailover={handleAutoFailover}
           />
         </div>
       </main>

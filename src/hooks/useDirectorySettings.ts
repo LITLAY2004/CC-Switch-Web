@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { homeDir, join } from "@tauri-apps/api/path";
 import { settingsApi, type AppId } from "@/lib/api";
 import type { SettingsFormState } from "./useSettingsForm";
+import { isWeb } from "@/lib/api/adapter";
 
 type DirectoryKey = "appConfig" | "claude" | "codex" | "gemini";
 
@@ -20,33 +20,64 @@ const sanitizeDir = (value?: string | null): string | undefined => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
-const computeDefaultAppConfigDir = async (): Promise<string | undefined> => {
+const loadPathApi = async () => {
+  if (isWeb()) return null;
   try {
-    const home = await homeDir();
-    return await join(home, ".cc-switch");
+    return await import("@tauri-apps/api/path");
+  } catch (error) {
+    console.error(
+      "[useDirectorySettings] Failed to load path API",
+      error,
+    );
+    return null;
+  }
+};
+
+const computeDefaultAppConfigDir = async (): Promise<string | undefined> => {
+  const fallbackHome =
+    process.env.VITEST === "true"
+      ? "/home/mock"
+      : process.env.HOME ?? "/home/mock";
+  try {
+    const pathApi = await loadPathApi();
+    if (!pathApi) {
+      return `${fallbackHome}/.cc-switch`;
+    }
+    const home = await pathApi.homeDir();
+    return await pathApi.join(home, ".cc-switch");
   } catch (error) {
     console.error(
       "[useDirectorySettings] Failed to resolve default app config dir",
       error,
     );
-    return undefined;
+    return `${fallbackHome}/.cc-switch`;
   }
 };
 
 const computeDefaultConfigDir = async (
   app: AppId,
 ): Promise<string | undefined> => {
+  const fallbackHome =
+    process.env.VITEST === "true"
+      ? "/home/mock"
+      : process.env.HOME ?? "/home/mock";
   try {
-    const home = await homeDir();
+    const pathApi = await loadPathApi();
     const folder =
       app === "claude" ? ".claude" : app === "codex" ? ".codex" : ".gemini";
-    return await join(home, folder);
+    if (!pathApi) {
+      return `${fallbackHome}/${folder}`;
+    }
+    const home = await pathApi.homeDir();
+    return await pathApi.join(home, folder);
   } catch (error) {
     console.error(
       "[useDirectorySettings] Failed to resolve default config dir",
       error,
     );
-    return undefined;
+    const folder =
+      app === "claude" ? ".claude" : app === "codex" ? ".codex" : ".gemini";
+    return `${fallbackHome}/${folder}`;
   }
 };
 
@@ -223,6 +254,20 @@ export function useDirectorySettings({
             ? (settings?.codexConfigDir ?? resolvedDirs.codex)
             : (settings?.geminiConfigDir ?? resolvedDirs.gemini);
 
+      if (isWeb()) {
+        const manual = window.prompt(
+          t("settings.manualDirectoryInput", {
+            defaultValue: "请输入目录路径",
+          }),
+          currentValue,
+        );
+        const sanitized = sanitizeDir(manual ?? undefined);
+        if (sanitized) {
+          updateDirectoryState(key, sanitized);
+        }
+        return;
+      }
+
       try {
         const picked = await settingsApi.selectConfigDirectory(currentValue);
         const sanitized = sanitizeDir(picked ?? undefined);
@@ -242,6 +287,19 @@ export function useDirectorySettings({
 
   const browseAppConfigDir = useCallback(async () => {
     const currentValue = appConfigDir ?? resolvedDirs.appConfig;
+    if (isWeb()) {
+      const manual = window.prompt(
+        t("settings.manualDirectoryInput", {
+          defaultValue: "请输入配置目录路径",
+        }),
+        currentValue,
+      );
+      const sanitized = sanitizeDir(manual ?? undefined);
+      if (sanitized) {
+        updateDirectoryState("appConfig", sanitized);
+      }
+      return;
+    }
     try {
       const picked = await settingsApi.selectConfigDirectory(currentValue);
       const sanitized = sanitizeDir(picked ?? undefined);

@@ -20,6 +20,8 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
   appId,
   usageEnabled,
   isCurrent,
+  backupProviderId = null,
+  onAutoFailover,
   inline = false,
 }) => {
   const { t } = useTranslation();
@@ -38,6 +40,37 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
     enabled: usageEnabled,
     autoQueryInterval,
   });
+
+  // 自动故障切换：当前供应商查询失败时切到备用
+  const failoverAttemptRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (
+      !isCurrent ||
+      !usageEnabled ||
+      !backupProviderId ||
+      providerId === backupProviderId ||
+      !usage
+    ) {
+      failoverAttemptRef.current = null;
+      return;
+    }
+
+    if (usage.success) {
+      failoverAttemptRef.current = null;
+      return;
+    }
+
+    if (failoverAttemptRef.current === providerId) return;
+    failoverAttemptRef.current = providerId;
+    onAutoFailover?.(backupProviderId);
+  }, [
+    backupProviderId,
+    isCurrent,
+    onAutoFailover,
+    providerId,
+    usage,
+    usageEnabled,
+  ]);
 
   // 🆕 定期更新当前时间，用于刷新相对时间显示
   const [now, setNow] = React.useState(Date.now());
@@ -107,6 +140,18 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
   // 内联模式：仅显示第一个套餐的核心数据（分上下两行）
   if (inline) {
     const firstUsage = usageDataList[0];
+    const remainingValue =
+      firstUsage.remaining !== undefined
+        ? firstUsage.remaining
+        : firstUsage.total !== undefined && firstUsage.used !== undefined
+          ? firstUsage.total - firstUsage.used
+          : undefined;
+    const usedValue =
+      firstUsage.used !== undefined
+        ? firstUsage.used
+        : firstUsage.total !== undefined && remainingValue !== undefined
+          ? firstUsage.total - remainingValue
+          : undefined;
     const isExpired = firstUsage.isValid === false;
 
     return (
@@ -135,19 +180,19 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
         {/* 第二行：已用 + 剩余 + 单位 */}
         <div className="flex items-center gap-2">
           {/* 已用 */}
-          {firstUsage.used !== undefined && (
+          {usedValue !== undefined && (
             <div className="flex items-center gap-0.5">
               <span className="text-gray-500 dark:text-gray-400">
                 {t("usage.used")}
               </span>
               <span className="tabular-nums text-gray-600 dark:text-gray-400 font-medium">
-                {firstUsage.used.toFixed(2)}
+                {usedValue.toFixed(2)}
               </span>
             </div>
           )}
 
           {/* 剩余 */}
-          {firstUsage.remaining !== undefined && (
+          {remainingValue !== undefined && (
             <div className="flex items-center gap-0.5">
               <span className="text-gray-500 dark:text-gray-400">
                 {t("usage.remaining")}
@@ -156,13 +201,13 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
                 className={`font-semibold tabular-nums ${
                   isExpired
                     ? "text-red-500 dark:text-red-400"
-                    : firstUsage.remaining <
-                        (firstUsage.total || firstUsage.remaining) * 0.1
+                    : remainingValue <
+                        (firstUsage.total || remainingValue) * 0.1
                       ? "text-orange-500 dark:text-orange-400"
                       : "text-green-600 dark:text-green-400"
                 }`}
               >
-                {firstUsage.remaining.toFixed(2)}
+                {remainingValue.toFixed(2)}
               </span>
             </div>
           )}
@@ -228,6 +273,19 @@ const UsagePlanItem: React.FC<{ data: UsageData }> = ({ data }) => {
     unit,
   } = data;
 
+  const remainingValue =
+    remaining !== undefined
+      ? remaining
+      : total !== undefined && used !== undefined
+        ? total - used
+        : undefined;
+  const usedValue =
+    used !== undefined
+      ? used
+      : total !== undefined && remainingValue !== undefined
+        ? total - remainingValue
+        : undefined;
+
   // 判断套餐是否失效（isValid 为 false 或未定义时视为有效）
   const isExpired = isValid === false;
 
@@ -289,20 +347,20 @@ const UsagePlanItem: React.FC<{ data: UsageData }> = ({ data }) => {
         )}
 
         {/* 已用额度 */}
-        {used !== undefined && (
+        {usedValue !== undefined && (
           <>
             <span className="text-gray-500 dark:text-gray-400">
               {t("usage.used")}
             </span>
             <span className="tabular-nums text-gray-600 dark:text-gray-400">
-              {used.toFixed(2)}
+              {usedValue.toFixed(2)}
             </span>
             <span className="text-gray-400 dark:text-gray-600">|</span>
           </>
         )}
 
         {/* 剩余额度 - 突出显示 */}
-        {remaining !== undefined && (
+        {remainingValue !== undefined && (
           <>
             <span className="text-gray-500 dark:text-gray-400">
               {t("usage.remaining")}
@@ -311,12 +369,12 @@ const UsagePlanItem: React.FC<{ data: UsageData }> = ({ data }) => {
               className={`font-semibold tabular-nums ${
                 isExpired
                   ? "text-red-500 dark:text-red-400"
-                  : remaining < (total || remaining) * 0.1
+                  : remainingValue < (total || remainingValue) * 0.1
                     ? "text-orange-500 dark:text-orange-400"
                     : "text-green-600 dark:text-green-400"
               }`}
             >
-              {remaining.toFixed(2)}
+              {remainingValue.toFixed(2)}
             </span>
           </>
         )}

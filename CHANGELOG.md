@@ -5,6 +5,20 @@ All notable changes to CC Switch will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2025-11-25
+
+### Fixed
+- MCP “空配置”首次加载报错：`get_all_servers` 现在在空配置时返回空 Map。
+- MCP 兼容接口去除弃用调用：`get_config` 过滤启用应用后返回统一结构。
+- 配置导出/导入（Web）：POST `/config/export` 无 body 时返回快照；导入支持直接传完整配置 JSON，修复 415。
+- Provider live 同步：返回结构统一为 `{ success, message }`，前端兼容布尔。
+- Skill 列表：去重改用唯一 key，避免不同仓库同名目录被折叠。
+
+### Changed
+- Web Server：支持 `HOST` 环境变量（默认 `0.0.0.0`）、可选 CORS 环境配置。
+- 文档：补充 Web 模式文件选择限制与 CORS 配置说明。
+- 版本号更新至 `0.1.0`。
+
 ## [3.7.0] - 2025-11-19
 
 ### Major Features

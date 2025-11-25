@@ -3,10 +3,9 @@ import { Download, ExternalLink, Info, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { getVersion } from "@tauri-apps/api/app";
 import { settingsApi } from "@/lib/api";
 import { useUpdate } from "@/contexts/UpdateContext";
-import { relaunchApp } from "@/lib/updater";
+import { getCurrentVersion, relaunchApp } from "@/lib/updater";
 
 interface AboutSectionProps {
   isPortable: boolean;
@@ -31,7 +30,7 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
     let active = true;
     const load = async () => {
       try {
-        const loaded = await getVersion();
+        const loaded = await getCurrentVersion();
         if (active) {
           setVersion(loaded);
         }

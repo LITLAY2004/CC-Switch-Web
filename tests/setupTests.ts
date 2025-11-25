@@ -8,6 +8,15 @@ import { resetProviderState } from "./msw/state";
 import "./msw/tauriMocks";
 
 beforeAll(async () => {
+  if (typeof window !== "undefined") {
+    // 让 isWeb() 返回 false，走 tauri invoke 路径，便于复用 TAURI MSW handlers
+    (window as any).__TAURI__ = {};
+  }
+  process.env.HOME = "/home/mock";
+  vi.mock("@tauri-apps/api/path", () => ({
+    homeDir: async () => "/home/mock",
+    join: async (...segments: string[]) => segments.join("/"),
+  }));
   server.listen({ onUnhandledRequest: "warn" });
   await i18n.use(initReactI18next).init({
     lng: "zh",

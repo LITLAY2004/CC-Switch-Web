@@ -16,8 +16,10 @@ mod prompt_files;
 mod provider;
 mod services;
 mod settings;
-mod store;
+pub mod store;
 mod usage_script;
+#[cfg(feature = "web-server")]
+pub mod web_api;
 
 pub use app_config::{AppType, McpApps, McpServer, MultiAppConfig};
 pub use codex_config::{get_codex_auth_path, get_codex_config_path, write_codex_live_atomic};
@@ -630,6 +632,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_providers,
             commands::get_current_provider,
+            commands::get_backup_provider,
+            commands::set_backup_provider,
             commands::add_provider,
             commands::update_provider,
             commands::delete_provider,

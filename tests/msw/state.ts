@@ -3,6 +3,7 @@ import type { McpServer, Provider, Settings } from "@/types";
 
 type ProvidersByApp = Record<AppId, Record<string, Provider>>;
 type CurrentProviderState = Record<AppId, string>;
+type BackupProviderState = Record<AppId, string | null>;
 type McpConfigState = Record<AppId, Record<string, McpServer>>;
 
 const createDefaultProviders = (): ProvidersByApp => ({
@@ -65,8 +66,15 @@ const createDefaultCurrent = (): CurrentProviderState => ({
   gemini: "gemini-1",
 });
 
+const createDefaultBackup = (): BackupProviderState => ({
+  claude: null,
+  codex: null,
+  gemini: null,
+});
+
 let providers = createDefaultProviders();
 let current = createDefaultCurrent();
+let backup = createDefaultBackup();
 let settingsState: Settings = {
   showInTray: true,
   minimizeToTrayOnClose: true,
@@ -110,6 +118,7 @@ const cloneProviders = (value: ProvidersByApp) =>
 export const resetProviderState = () => {
   providers = createDefaultProviders();
   current = createDefaultCurrent();
+  backup = createDefaultBackup();
   settingsState = {
     showInTray: true,
     minimizeToTrayOnClose: true,
@@ -152,6 +161,12 @@ export const getProviders = (appType: AppId) =>
   cloneProviders(providers)[appType] ?? {};
 
 export const getCurrentProviderId = (appType: AppId) => current[appType] ?? "";
+
+export const getBackupProviderId = (appType: AppId) => backup[appType] ?? null;
+
+export const setBackupProviderId = (appType: AppId, providerId: string | null) => {
+  backup[appType] = providerId;
+};
 
 export const setCurrentProviderId = (appType: AppId, providerId: string) => {
   current[appType] = providerId;

@@ -1,8 +1,8 @@
 <div align="center">
 
-# Claude Code / Codex / Gemini CLI 全方位辅助工具
+# cc-switch-web — Claude Code / Codex / Gemini CLI Web/无头辅助工具
 
-[![Version](https://img.shields.io/badge/version-3.7.0-blue.svg)](https://github.com/farion1231/cc-switch/releases)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/farion1231/cc-switch/releases)
 [![Trending](https://img.shields.io/badge/🔥_TypeScript_Trending-Daily%20%7C%20Weekly%20%7C%20Monthly-ff6b6b.svg)](https://github.com/trending/typescript)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/farion1231/cc-switch/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-orange.svg)](https://tauri.app/)
@@ -12,7 +12,7 @@
 
 [English](README.md) | 中文 | [更新日志](CHANGELOG.md)
 
-一个用于管理和切换 Claude Code 与 Codex 不同供应商配置、MCP的桌面应用。
+Web/服务器版：用于管理和切换 Claude Code、Codex、Gemini 的供应商配置与 MCP。
 
 </div>
 
@@ -37,13 +37,48 @@ CC Switch 已经预设了智谱GLM，只需要填写 key 即可一键导入编�
 
 ## 界面预览
 
-|                  主界面                   |                  添加供应商                  |
-| :---------------------------------------: | :------------------------------------------: |
-| ![主界面](assets/screenshots/main-zh.png) | ![添加供应商](assets/screenshots/add-zh.png) |
-
 ## 功能特性
 
-### 当前版本：v3.7.0 | [完整更新日志](CHANGELOG.md)
+### 当前版本：v0.1.0 | [完整更新日志](CHANGELOG.md)
+
+## 为什么选择 cc-switch-web（对比桌面版 cc-switch）
+
+- 云端/无头友好：纯 Web Server，可在任意环境运行，无需桌面环境。
+- 更兼容：Claude Code / Codex / Gemini 统一 HTTP 接口，易于接入。
+- 模板更丰富：内置更多 MCP/技能/供应商预设。
+- 默认更安全：自动生成 Basic Auth 密码；默认同源访问，跨域需显式开启。
+- 可控监听：可配置 `HOST`/`PORT`，方便搭配 HTTPS 反代。
+- 智能容灾：备用供应商自动切换，转发商异常时自动兜底。
+
+## 核心亮点
+
+- Claude/Codex/Gemini 供应商切换与实时写入。
+- 统一 MCP 管理，支持跨客户端导入/导出。
+- 技能市场：仓库扫描 + 一键安装。
+- 提示词管理：内置 CodeMirror 编辑器。
+- 导入导出 + 备份轮换，支持目录重定向（适配 WSL/云同步）。
+
+## 快速开始（Web）
+
+```bash
+pnpm install
+pnpm build:web
+cd src-tauri
+cargo build --release --features web-server --bin cc-switch-server
+HOST=0.0.0.0 PORT=3000 ./target/release/cc-switch-server
+```
+
+- 登录：`admin` / `~/.cc-switch/web_password` 中的自动生成密码。
+- CORS：默认同源；跨域需设置 `CORS_ALLOW_ORIGINS`（可选 `CORS_ALLOW_CREDENTIALS=true`）。
+- Web 模式不支持系统文件/目录选择器，请手动输入路径。
+
+## 截图
+
+| Skills 市场 | 提示词编辑 | 高级设置 |
+| :--: | :--: | :--: |
+| ![Skills](assets/screenshots/web-skills.png) | ![Prompt](assets/screenshots/web-prompt.png) | ![Settings](assets/screenshots/web-settings.png) |
+
+*（请将你的截图放在上述路径下）*
 
 **核心功能**
 
@@ -69,6 +104,11 @@ CC Switch 已经预设了智谱GLM，只需要填写 key 即可一键导入编�
 - 单实例守护
 - 内置自动更新器
 - 原子写入与回滚保护
+
+### Web Server 模式提示
+
+- Web 端不支持系统文件/目录选择器（相关 API 返回 501），需要手动输入路径。
+- 默认仅同源可访问；如需跨域访问，请设置环境变量 `CORS_ALLOW_ORIGINS`（可选 `CORS_ALLOW_CREDENTIALS=true`）。详见 `WEB_SERVER_GUIDE.md`。
 
 ## 下载安装
 

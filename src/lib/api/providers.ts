@@ -1,7 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { Provider } from "@/types";
+import { invoke, isWeb } from "./adapter";
 import type { AppId } from "./types";
+
+type UnlistenFn = () => void;
 
 export interface ProviderSortUpdate {
   id: string;
@@ -20,6 +21,14 @@ export const providersApi = {
 
   async getCurrent(appId: AppId): Promise<string> {
     return await invoke("get_current_provider", { app: appId });
+  },
+
+  async getBackup(appId: AppId): Promise<string | null> {
+    return await invoke("get_backup_provider", { app: appId });
+  },
+
+  async setBackup(id: string | null, appId: AppId): Promise<boolean> {
+    return await invoke("set_backup_provider", { id, app: appId });
   },
 
   async add(provider: Provider, appId: AppId): Promise<boolean> {
@@ -56,6 +65,11 @@ export const providersApi = {
   async onSwitched(
     handler: (event: ProviderSwitchEvent) => void,
   ): Promise<UnlistenFn> {
+    if (isWeb()) {
+      // Web builds have no Tauri event bridge; return a noop unsubscriber.
+      return () => {};
+    }
+    const { listen } = await import("@tauri-apps/api/event");
     return await listen("provider-switched", (event) => {
       const payload = event.payload as ProviderSwitchEvent;
       handler(payload);

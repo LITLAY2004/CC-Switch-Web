@@ -5,9 +5,11 @@ import {
   addProvider,
   deleteProvider,
   getCurrentProviderId,
+  getBackupProviderId,
   getProviders,
   listProviders,
   resetProviderState,
+  setBackupProviderId,
   setCurrentProviderId,
   updateProvider,
   updateSortOrder,
@@ -44,6 +46,17 @@ export const handlers = [
   http.post(`${TAURI_ENDPOINT}/get_current_provider`, async ({ request }) => {
     const { app } = await withJson<{ app: AppId }>(request);
     return success(getCurrentProviderId(app));
+  }),
+
+  http.post(`${TAURI_ENDPOINT}/get_backup_provider`, async ({ request }) => {
+    const { app } = await withJson<{ app: AppId }>(request);
+    return success(getBackupProviderId(app));
+  }),
+
+  http.post(`${TAURI_ENDPOINT}/set_backup_provider`, async ({ request }) => {
+    const { app, id } = await withJson<{ app: AppId; id: string | null }>(request);
+    setBackupProviderId(app, id ?? null);
+    return success(true);
   }),
 
   http.post(`${TAURI_ENDPOINT}/update_providers_sort_order`, async ({ request }) => {

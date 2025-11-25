@@ -13,17 +13,8 @@ impl McpService {
     pub fn get_all_servers(state: &AppState) -> Result<HashMap<String, McpServer>, AppError> {
         let cfg = state.config.read()?;
 
-        // 如果是新结构，直接返回
-        if let Some(servers) = &cfg.mcp.servers {
-            return Ok(servers.clone());
-        }
-
-        // 理论上不应该走到这里，因为 load 时会自动迁移
-        Err(AppError::localized(
-            "mcp.old_structure",
-            "检测到旧版 MCP 结构，请重启应用完成迁移",
-            "Old MCP structure detected, please restart app to complete migration",
-        ))
+        // 新结构：空表示尚未配置任何 MCP 服务器，返回空 Map 而不是报错，避免初始加载失败。
+        Ok(cfg.mcp.servers.clone().unwrap_or_default())
     }
 
     /// 添加或更新 MCP 服务器

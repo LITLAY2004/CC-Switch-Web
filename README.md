@@ -1,8 +1,8 @@
 <div align="center">
 
-# All-in-One Assistant for Claude Code, Codex & Gemini CLI
+# cc-switch-web — All-in-One Assistant for Claude Code, Codex & Gemini CLI (Web/Headless)
 
-[![Version](https://img.shields.io/badge/version-3.7.0-blue.svg)](https://github.com/farion1231/cc-switch/releases)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/farion1231/cc-switch/releases)
 [![Trending](https://img.shields.io/badge/🔥_TypeScript_Trending-Daily%20%7C%20Weekly%20%7C%20Monthly-ff6b6b.svg)](https://github.com/trending/typescript)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/farion1231/cc-switch/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-orange.svg)](https://tauri.app/)
@@ -12,7 +12,7 @@
 
 English | [中文](README_ZH.md) | [Changelog](CHANGELOG.md)
 
-A desktop application for managing and switching between different provider configurations & MCP for Claude Code and Codex.
+Web/server edition for managing and switching provider configurations & MCP for Claude Code, Codex, and Gemini.
 
 </div>
 
@@ -37,38 +37,51 @@ Get 10% OFF the GLM CODING PLAN with [this link](https://z.ai/subscribe?ic=8JVLJ
 
 ## Screenshots
 
-|                  Main Interface                   |                  Add Provider                  |
-| :-----------------------------------------------: | :--------------------------------------------: |
-| ![Main Interface](assets/screenshots/main-en.png) | ![Add Provider](assets/screenshots/add-en.png) |
+## Why cc-switch-web (vs cc-switch desktop)
 
-## Features
+- Cloud/headless ready: run as a web server anywhere, no GUI required.
+- Compatibility first: unified API for Claude Code, Codex, and Gemini over HTTP.
+- More presets: extra MCP/skill/provider templates.
+- Safer defaults: generated Basic Auth password; same-origin only unless CORS is explicitly allowed.
+- Local control: configurable `HOST`/`PORT`, easy to reverse-proxy with TLS.
+- Smarter failover: backup provider auto-switch when a relay/vendor goes down.
 
-### Current Version: v3.7.0 | [Full Changelog](CHANGELOG.md)
+## Highlights
 
-**Core Capabilities**
+- Provider switching for Claude Code / Codex / Gemini with live sync.
+- Unified MCP management (import/export across clients).
+- Skills marketplace with repo scanning and one-click install.
+- Prompt management with CodeMirror editor.
+- Import/export with backups; directory overrides for WSL/cloud sync.
 
-- **Provider Management**: One-click switching between Claude Code, Codex, and Gemini API configurations
-- **MCP Integration**: Centralized MCP server management with stdio/http support and real-time sync
-- **Speed Testing**: Measure API endpoint latency with visual quality indicators
-- **Import/Export**: Backup and restore configs with auto-rotation (keep 10 most recent)
-- **i18n Support**: Complete Chinese/English localization (UI, errors, tray)
-- **Claude Plugin Sync**: One-click apply/restore Claude plugin configurations
+## Quick Start (Web)
 
-**v3.6 Highlights**
+```bash
+pnpm install
+pnpm build:web
+cd src-tauri
+cargo build --release --features web-server --bin cc-switch-server
+HOST=0.0.0.0 PORT=3000 ./target/release/cc-switch-server
+```
 
-- Provider duplication & drag-and-drop sorting
-- Multi-endpoint management & custom config directory (cloud sync ready)
-- Granular model configuration (4-tier: Haiku/Sonnet/Opus/Custom)
-- WSL environment support with auto-sync on directory change
-- 100% hooks test coverage & complete architecture refactoring
-- New presets: DMXAPI, Azure Codex, AnyRouter, AiHubMix, MiniMax
+- Login: `admin` / password in `~/.cc-switch/web_password` (auto-generated).
+- CORS: same-origin by default; set `CORS_ALLOW_ORIGINS` (optional `CORS_ALLOW_CREDENTIALS=true`) to allow cross-origin.
+- File/dir pickers are not available in web mode—enter paths manually.
 
-**System Features**
+## Screenshots
 
-- System tray with quick switching
-- Single instance daemon
-- Built-in auto-updater
-- Atomic writes with rollback protection
+| Skills marketplace | Prompt editor | Advanced settings |
+| :--: | :--: | :--: |
+| ![Skills](assets/screenshots/web-skills.png) | ![Prompt](assets/screenshots/web-prompt.png) | ![Settings](assets/screenshots/web-settings.png) |
+
+*(Place your screenshots at the above paths.)*
+
+### Current Version: v0.1.0 | [Full Changelog](CHANGELOG.md)
+
+### Web Server Notes
+
+- Web mode does not support native file/directory pickers (those APIs return 501); enter paths manually.
+- Default is same-origin only; for cross-origin access set `CORS_ALLOW_ORIGINS` (optionally `CORS_ALLOW_CREDENTIALS=true`). See `WEB_SERVER_GUIDE.md`.
 
 ## Download & Installation
 

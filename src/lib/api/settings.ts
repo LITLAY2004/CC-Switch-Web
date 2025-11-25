@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import type { Settings } from "@/types";
+import { invoke } from "./adapter";
 import type { AppId } from "./types";
 
 export interface ConfigTransferResult {
@@ -81,17 +81,34 @@ export const settingsApi = {
     return await invoke("export_config_to_file", { filePath });
   },
 
-  async importConfigFromFile(filePath: string): Promise<ConfigTransferResult> {
-    return await invoke("import_config_from_file", { filePath });
+  async importConfigFromFile(
+    filePath: string,
+    fileContent?: string,
+  ): Promise<ConfigTransferResult> {
+    return await invoke("import_config_from_file", {
+      filePath,
+      ...(fileContent ? { content: fileContent } : {}),
+    });
   },
 
   async syncCurrentProvidersLive(): Promise<void> {
-    const result = (await invoke("sync_current_providers_live")) as {
-      success?: boolean;
-      message?: string;
-    };
-    if (!result?.success) {
-      throw new Error(result?.message || "Sync current providers failed");
+    const result = (await invoke("sync_current_providers_live")) as
+      | boolean
+      | {
+          success?: boolean;
+          message?: string;
+        };
+
+    const success =
+      result === true ||
+      (typeof result === "object" && Boolean(result?.success));
+
+    if (!success) {
+      const message =
+        typeof result === "object" && result?.message
+          ? result.message
+          : "Sync current providers failed";
+      throw new Error(message);
     }
   },
 

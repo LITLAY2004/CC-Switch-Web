@@ -52,6 +52,9 @@ vi.mock("@/lib/api", () => ({
     syncCurrentProvidersLive: (...args: unknown[]) =>
       syncCurrentProvidersLiveMock(...args),
   },
+  providersApi: {
+    updateTrayMenu: vi.fn().mockResolvedValue(true),
+  },
 }));
 
 const createSettingsFormMock = (overrides: Record<string, unknown> = {}) => ({
@@ -279,6 +282,7 @@ describe("useSettings hook", () => {
     );
     expect(directorySettingsMock.resetAllDirectories).toHaveBeenCalledWith(
       "/server/claude",
+      undefined,
       undefined,
     );
     expect(metadataMock.setRequiresRestart).toHaveBeenCalledWith(false);

@@ -33,6 +33,9 @@ const TEMPLATE_KEYS = {
   CUSTOM: "custom",
   GENERAL: "general",
   NEW_API: "newapi",
+  PACKYCODE: "packycode",
+  CODE88: "88code",
+  PRIVNODE: "privnode",
 } as const;
 
 // 生成预设模板的函数（支持国际化）
@@ -97,14 +100,116 @@ const generatePresetTemplates = (
     };
   },
 })`,
+
+  // 服务商专用模板
+  [TEMPLATE_KEYS.PACKYCODE]: `({
+  request: {
+    url: "https://www.packyapi.com/api/user/self",
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer {{apiKey}}",
+      "Content-Type": "application/json"
+    }
+  },
+  extractor: function (response) {
+    if (response.success === false) {
+      return { 
+        isValid: false, 
+        invalidMessage: response.message || "Invalid token" 
+      };
+    }
+    const info = response.data || response;
+    const remaining = info.balance ?? info.quota ?? info.credit ?? null;
+    const used = info.used_quota ?? info.used ?? info.usage ?? null;
+    return {
+      planName: info.group || info.role || "PackyCode",
+      remaining: remaining,
+      used: used,
+      total: remaining && used ? remaining + used : null,
+      unit: info.unit || "credits",
+      percentage: remaining && used ? (used / (remaining + used)) * 100 : null
+    };
+  }
+})`,
+
+  [TEMPLATE_KEYS.CODE88]: `({
+  request: {
+    url: "{{baseUrl}}/v1/me",
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer {{apiKey}}",
+      "Content-Type": "application/json"
+    }
+  },
+  extractor: function (response) {
+    if (response.error) {
+      return { 
+        isValid: false, 
+        invalidMessage: response.error.message || "Invalid API key" 
+      };
+    }
+    const info = response.data || response;
+    return {
+      planName: info.plan || info.tier || "88code",
+      remaining: info.balance ?? info.credits ?? info.quota ?? null,
+      used: info.used ?? info.used_quota ?? info.usage ?? null,
+      unit: info.unit || "credits"
+    };
+  }
+})`,
+
+  [TEMPLATE_KEYS.PRIVNODE]: `({
+  request: {
+    url: "https://privnode.com/api/user/self",
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer {{apiKey}}",
+      "Content-Type": "application/json"
+    }
+  },
+  extractor: function (response) {
+    if (response.success === false) {
+      return { 
+        isValid: false, 
+        invalidMessage: response.message || "Invalid token" 
+      };
+    }
+    const info = response.data || response;
+    const remaining = info.balance ?? info.quota ?? info.credit ?? null;
+    const used = info.used_quota ?? info.used ?? info.usage ?? null;
+    return {
+      planName: info.group || info.role || "Privnode",
+      remaining: remaining,
+      used: used,
+      total: remaining && used ? remaining + used : null,
+      unit: info.unit || "credits",
+      percentage: remaining && used ? (used / (remaining + used)) * 100 : null
+    };
+  }
+})`,
 });
 
 // 模板名称国际化键映射
 const TEMPLATE_NAME_KEYS: Record<string, string> = {
-  [TEMPLATE_KEYS.CUSTOM]: "usageScript.templateCustom",
-  [TEMPLATE_KEYS.GENERAL]: "usageScript.templateGeneral",
-  [TEMPLATE_KEYS.NEW_API]: "usageScript.templateNewAPI",
+  [TEMPLATE_KEYS.CUSTOM]: "usageScript.templates.custom",
+  [TEMPLATE_KEYS.GENERAL]: "usageScript.templates.general",
+  [TEMPLATE_KEYS.NEW_API]: "usageScript.templates.newapi",
+  [TEMPLATE_KEYS.PACKYCODE]: "usageScript.templates.packycode",
+  [TEMPLATE_KEYS.CODE88]: "usageScript.templates.88code",
+  [TEMPLATE_KEYS.PRIVNODE]: "usageScript.templates.privnode",
 };
+
+const API_KEY_TEMPLATES = new Set<string>([
+  TEMPLATE_KEYS.GENERAL,
+  TEMPLATE_KEYS.PACKYCODE,
+  TEMPLATE_KEYS.CODE88,
+  TEMPLATE_KEYS.PRIVNODE,
+]);
+
+const BASE_URL_TEMPLATES = new Set<string>([
+  TEMPLATE_KEYS.GENERAL,
+  TEMPLATE_KEYS.CODE88,
+]);
 
 const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
   provider,
@@ -313,42 +418,39 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
 
   const handleUsePreset = (presetName: string) => {
     const preset = PRESET_TEMPLATES[presetName];
-    if (preset) {
-      // 根据模板类型清空不同的字段
-      if (presetName === TEMPLATE_KEYS.CUSTOM) {
-        // 自定义：清空所有凭证字段
-        setScript({
-          ...script,
-          code: preset,
-          apiKey: undefined,
-          baseUrl: undefined,
-          accessToken: undefined,
-          userId: undefined,
-        });
-      } else if (presetName === TEMPLATE_KEYS.GENERAL) {
-        // 通用：保留 apiKey 和 baseUrl，清空 NewAPI 字段
-        setScript({
-          ...script,
-          code: preset,
-          accessToken: undefined,
-          userId: undefined,
-        });
-      } else if (presetName === TEMPLATE_KEYS.NEW_API) {
-        // NewAPI：清空 apiKey（NewAPI 不使用通用的 apiKey）
-        setScript({
-          ...script,
-          code: preset,
-          apiKey: undefined,
-        });
-      }
-      setSelectedTemplate(presetName); // 记录选择的模板
+    if (!preset) return;
+
+    const nextScript: UsageScript = { ...script, code: preset };
+
+    // 根据模板类型清空不同的字段
+    if (presetName === TEMPLATE_KEYS.CUSTOM) {
+      // 自定义：清空所有凭证字段
+      nextScript.apiKey = undefined;
+      nextScript.baseUrl = undefined;
+      nextScript.accessToken = undefined;
+      nextScript.userId = undefined;
+    } else if (presetName === TEMPLATE_KEYS.NEW_API) {
+      // NewAPI：清空 apiKey（NewAPI 不使用通用的 apiKey）
+      nextScript.apiKey = undefined;
+    } else {
+      // 其他通用/服务商模板：清理 NewAPI 字段
+      nextScript.accessToken = undefined;
+      nextScript.userId = undefined;
     }
+
+    setScript(nextScript);
+    setSelectedTemplate(presetName); // 记录选择的模板
   };
 
   // 判断是否应该显示凭证配置区域
   const shouldShowCredentialsConfig =
-    selectedTemplate === TEMPLATE_KEYS.GENERAL ||
-    selectedTemplate === TEMPLATE_KEYS.NEW_API;
+    (selectedTemplate
+      ? API_KEY_TEMPLATES.has(selectedTemplate)
+      : false) || selectedTemplate === TEMPLATE_KEYS.NEW_API;
+  const showApiKeyFields =
+    selectedTemplate !== null && API_KEY_TEMPLATES.has(selectedTemplate);
+  const showBaseUrlInput =
+    selectedTemplate !== null && BASE_URL_TEMPLATES.has(selectedTemplate);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -411,8 +513,8 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                     {t("usageScript.credentialsConfig")}
                   </h4>
 
-                  {/* 通用模板：显示 apiKey + baseUrl */}
-                  {selectedTemplate === TEMPLATE_KEYS.GENERAL && (
+                  {/* 通用/服务商模板：显示 apiKey + baseUrl（按需） */}
+                  {showApiKeyFields && (
                     <>
                       <div className="space-y-2">
                         <Label htmlFor="usage-api-key">API Key</Label>
@@ -448,19 +550,21 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="usage-base-url">Base URL</Label>
-                        <Input
-                          id="usage-base-url"
-                          type="text"
-                          value={script.baseUrl || ""}
-                          onChange={(e) =>
-                            setScript({ ...script, baseUrl: e.target.value })
-                          }
-                          placeholder="https://api.example.com"
-                          autoComplete="off"
-                        />
-                      </div>
+                      {showBaseUrlInput && (
+                        <div className="space-y-2">
+                          <Label htmlFor="usage-base-url">Base URL</Label>
+                          <Input
+                            id="usage-base-url"
+                            type="text"
+                            value={script.baseUrl || ""}
+                            onChange={(e) =>
+                              setScript({ ...script, baseUrl: e.target.value })
+                            }
+                            placeholder="https://api.example.com"
+                            autoComplete="off"
+                          />
+                        </div>
+                      )}
                     </>
                   )}
 

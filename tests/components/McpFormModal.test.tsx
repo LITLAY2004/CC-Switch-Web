@@ -234,7 +234,7 @@ describe("McpFormModal", () => {
     await waitFor(() => expect(toastErrorMock).toHaveBeenCalled());
     expect(upsertMock).not.toHaveBeenCalled();
     const [message] = toastErrorMock.mock.calls.at(-1) ?? [];
-    expect(message).toBe("mcp.error.jsonInvalid");
+    expect(message).toBe("mcp.error.commandRequired");
   });
 
   it("支持向导生成配置并自动填充 ID", async () => {

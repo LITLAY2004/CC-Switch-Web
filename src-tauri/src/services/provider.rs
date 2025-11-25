@@ -740,6 +740,44 @@ impl ProviderService {
         Ok(manager.current.clone())
     }
 
+    /// 获取备用供应商 ID
+    pub fn backup(state: &AppState, app_type: AppType) -> Result<Option<String>, AppError> {
+        let config = state.config.read().map_err(AppError::from)?;
+        let manager = config
+            .get_manager(&app_type)
+            .ok_or_else(|| Self::app_not_found(&app_type))?;
+        Ok(manager.backup_current.clone())
+    }
+
+    /// 设置备用供应商 ID
+    pub fn set_backup(
+        state: &AppState,
+        app_type: AppType,
+        provider_id: Option<String>,
+    ) -> Result<(), AppError> {
+        Self::run_transaction(state, move |config| {
+            let manager = config
+                .get_manager(&app_type)
+                .ok_or_else(|| Self::app_not_found(&app_type))?;
+
+            if let Some(ref id) = provider_id {
+                if !manager.providers.contains_key(id) {
+                    return Err(AppError::localized(
+                        "provider.not_found",
+                        format!("供应商不存在: {id}"),
+                        format!("Provider not found: {id}"),
+                    ));
+                }
+            }
+
+            if let Some(manager) = config.get_manager_mut(&app_type) {
+                manager.backup_current = provider_id.clone();
+            }
+
+            Ok(((), None))
+        })
+    }
+
     /// 新增供应商
     pub fn add(state: &AppState, app_type: AppType, provider: Provider) -> Result<bool, AppError> {
         let mut provider = provider;
@@ -888,14 +926,10 @@ impl ProviderService {
                     env_to_json, get_gemini_env_path, get_gemini_settings_path, read_gemini_env,
                 };
 
-                // 读取 .env 文件（环境变量）
+                // 读取 .env 文件（环境变量）；如果缺失则使用空配置，避免直接报错
                 let env_path = get_gemini_env_path();
                 if !env_path.exists() {
-                    return Err(AppError::localized(
-                        "gemini.live.missing",
-                        "Gemini 配置文件不存在",
-                        "Gemini configuration file is missing",
-                    ));
+                    log::warn!("Gemini .env file missing when importing defaults; using empty env");
                 }
 
                 let env_map = read_gemini_env()?;
@@ -973,16 +1007,11 @@ impl ProviderService {
                     env_to_json, get_gemini_env_path, get_gemini_settings_path, read_gemini_env,
                 };
 
-                // 读取 .env 文件（环境变量）
+                // 读取 .env 文件（环境变量）；缺失时返回空配置，避免 400
                 let env_path = get_gemini_env_path();
                 if !env_path.exists() {
-                    return Err(AppError::localized(
-                        "gemini.env.missing",
-                        "Gemini .env 文件不存在",
-                        "Gemini .env file not found",
-                    ));
+                    log::warn!("Gemini .env file not found when reading live settings; returning empty env");
                 }
-
                 let env_map = read_gemini_env()?;
                 let env_json = env_to_json(&env_map);
                 let env_obj = env_json.get("env").cloned().unwrap_or_else(|| json!({}));

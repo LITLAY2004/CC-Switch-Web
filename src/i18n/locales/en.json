@@ -96,6 +96,12 @@
     "sortUpdated": "Sort order updated",
     "usageSaved": "Usage query configuration saved",
     "usageSaveFailed": "Failed to save usage query configuration",
+    "backupLabel": "Backup",
+    "backupPlaceholder": "Select backup provider",
+    "backupUpdated": "Backup provider updated to {{name}}",
+    "backupUpdateFailed": "Failed to update backup provider: {{error}}",
+    "autoFailover": "Auto-switched to backup provider: {{name}}",
+    "autoFailoverFailed": "Auto failover failed: {{error}}",
     "geminiConfig": "Gemini Configuration",
     "geminiConfigHint": "Use .env format to configure Gemini",
     "form": {
@@ -364,6 +370,14 @@
     "templateCustom": "Custom",
     "templateGeneral": "General",
     "templateNewAPI": "NewAPI",
+    "templates": {
+      "custom": "Custom",
+      "general": "General",
+      "newapi": "New API",
+      "packycode": "PackyCode",
+      "88code": "88code",
+      "privnode": "Privnode"
+    },
     "credentialsConfig": "Credentials",
     "accessToken": "Access Token",
     "accessTokenPlaceholder": "Generate in 'Security Settings'",

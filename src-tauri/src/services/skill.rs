@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tokio::time::timeout;
@@ -344,11 +344,11 @@ impl SkillService {
 
     /// 去重技能列表
     fn deduplicate_skills(skills: &mut Vec<Skill>) {
-        let mut seen = HashMap::new();
+        let mut seen = HashSet::new();
         skills.retain(|skill| {
-            let key = skill.directory.to_lowercase();
-            if let std::collections::hash_map::Entry::Vacant(e) = seen.entry(key) {
-                e.insert(true);
+            // key 已包含 owner/name:directory 或 local:directory，使用它避免不同仓库同名目录被误去重
+            let key = skill.key.to_lowercase();
+            if seen.insert(key) {
                 true
             } else {
                 false

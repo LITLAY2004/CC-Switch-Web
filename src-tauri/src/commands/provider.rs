@@ -25,6 +25,28 @@ pub fn get_current_provider(state: State<'_, AppState>, app: String) -> Result<S
     ProviderService::current(state.inner(), app_type).map_err(|e| e.to_string())
 }
 
+/// 获取备用供应商 ID
+#[tauri::command]
+pub fn get_backup_provider(
+    state: State<'_, AppState>,
+    app: String,
+) -> Result<Option<String>, String> {
+    let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
+    ProviderService::backup(state.inner(), app_type).map_err(|e| e.to_string())
+}
+
+/// 设置备用供应商 ID
+#[tauri::command]
+pub fn set_backup_provider(
+    state: State<'_, AppState>,
+    app: String,
+    id: Option<String>,
+) -> Result<bool, String> {
+    let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
+    ProviderService::set_backup(state.inner(), app_type, id).map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
 /// 添加供应商
 #[tauri::command]
 pub fn add_provider(

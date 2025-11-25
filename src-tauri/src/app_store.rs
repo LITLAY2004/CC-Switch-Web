@@ -1,4 +1,5 @@
 use serde_json::Value;
+use std::fs;
 use std::path::PathBuf;
 use std::sync::{OnceLock, RwLock};
 use tauri_plugin_store::StoreExt;
@@ -23,7 +24,19 @@ fn update_cached_override(value: Option<PathBuf>) {
 
 /// 获取缓存中的 app_config_dir 覆盖路径
 pub fn get_app_config_dir_override() -> Option<PathBuf> {
-    override_cache().read().ok()?.clone()
+    if let Ok(guard) = override_cache().read() {
+        if guard.is_some() {
+            return guard.clone();
+        }
+    }
+
+    // 对于 Web Server 模式，允许直接从磁盘读取默认的 app_paths.json
+    if let Some(from_disk) = read_override_from_disk() {
+        update_cached_override(Some(from_disk.clone()));
+        return Some(from_disk);
+    }
+
+    None
 }
 
 fn read_override_from_store(app: &tauri::AppHandle) -> Option<PathBuf> {
@@ -131,5 +144,77 @@ pub fn migrate_app_config_dir_from_settings(app: &tauri::AppHandle) -> Result<()
     log::info!("app_config_dir 迁移功能已移除，请在设置中重新配置");
 
     let _ = refresh_app_config_dir_override(app);
+    Ok(())
+}
+
+fn store_path() -> Option<PathBuf> {
+    let home = dirs::home_dir()?;
+    Some(home.join(".cc-switch").join("app_paths.json"))
+}
+
+fn read_override_from_disk() -> Option<PathBuf> {
+    let path = store_path()?;
+    if !path.exists() {
+        return None;
+    }
+
+    let content = fs::read_to_string(&path).ok()?;
+    let value: Value = serde_json::from_str(&content).ok()?;
+    match value {
+        Value::Object(map) => map
+            .get(STORE_KEY_APP_CONFIG_DIR)
+            .and_then(|v| v.as_str())
+            .map(resolve_path),
+        _ => None,
+    }
+}
+
+/// 在无 Tauri 环境下（如 Web Server）设置 app_config_dir 覆盖路径并写入磁盘。
+pub fn set_app_config_dir_override_standalone(path: Option<&str>) -> Result<(), AppError> {
+    let store_path = store_path().ok_or_else(|| {
+        AppError::Message("无法获取用户主目录以写入 app_paths.json".to_string())
+    })?;
+
+    let mut data: Value = if store_path.exists() {
+        fs::read_to_string(&store_path)
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_else(|| Value::Object(serde_json::Map::new()))
+    } else {
+        Value::Object(serde_json::Map::new())
+    };
+
+    let map = data
+        .as_object_mut()
+        .ok_or_else(|| AppError::Message("app_paths.json 内容格式无效".to_string()))?;
+
+    match path {
+        Some(raw) => {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() {
+                map.remove(STORE_KEY_APP_CONFIG_DIR);
+                update_cached_override(None);
+            } else {
+                map.insert(
+                    STORE_KEY_APP_CONFIG_DIR.to_string(),
+                    Value::String(trimmed.to_string()),
+                );
+                update_cached_override(Some(resolve_path(trimmed)));
+            }
+        }
+        None => {
+            map.remove(STORE_KEY_APP_CONFIG_DIR);
+            update_cached_override(None);
+        }
+    }
+
+    if let Some(parent) = store_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| AppError::io(parent, e))?;
+    }
+
+    let serialized = serde_json::to_string_pretty(&data)
+        .map_err(|e| AppError::Message(format!("序列化 app_paths.json 失败: {e}")))?;
+    fs::write(&store_path, serialized).map_err(|e| AppError::io(&store_path, e))?;
+
     Ok(())
 }

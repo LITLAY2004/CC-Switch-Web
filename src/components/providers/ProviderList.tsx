@@ -15,6 +15,7 @@ import { ProviderEmptyState } from "@/components/providers/ProviderEmptyState";
 interface ProviderListProps {
   providers: Record<string, Provider>;
   currentProviderId: string;
+  backupProviderId?: string | null;
   appId: AppId;
   isEditMode?: boolean;
   onSwitch: (provider: Provider) => void;
@@ -25,11 +26,13 @@ interface ProviderListProps {
   onOpenWebsite: (url: string) => void;
   onCreate?: () => void;
   isLoading?: boolean;
+  onAutoFailover?: (targetId: string) => void;
 }
 
 export function ProviderList({
   providers,
   currentProviderId,
+  backupProviderId,
   appId,
   isEditMode = false,
   onSwitch,
@@ -40,6 +43,7 @@ export function ProviderList({
   onOpenWebsite,
   onCreate,
   isLoading = false,
+  onAutoFailover,
 }: ProviderListProps) {
   const { sortedProviders, sensors, handleDragEnd } = useDragSort(
     providers,
@@ -79,6 +83,7 @@ export function ProviderList({
               key={provider.id}
               provider={provider}
               isCurrent={provider.id === currentProviderId}
+              backupProviderId={backupProviderId}
               appId={appId}
               isEditMode={isEditMode}
               onSwitch={onSwitch}
@@ -87,6 +92,7 @@ export function ProviderList({
               onDuplicate={onDuplicate}
               onConfigureUsage={onConfigureUsage}
               onOpenWebsite={onOpenWebsite}
+              onAutoFailover={onAutoFailover}
             />
           ))}
         </div>
@@ -98,6 +104,7 @@ export function ProviderList({
 interface SortableProviderCardProps {
   provider: Provider;
   isCurrent: boolean;
+  backupProviderId?: string | null;
   appId: AppId;
   isEditMode: boolean;
   onSwitch: (provider: Provider) => void;
@@ -106,11 +113,13 @@ interface SortableProviderCardProps {
   onDuplicate: (provider: Provider) => void;
   onConfigureUsage?: (provider: Provider) => void;
   onOpenWebsite: (url: string) => void;
+  onAutoFailover?: (targetId: string) => void;
 }
 
 function SortableProviderCard({
   provider,
   isCurrent,
+  backupProviderId,
   appId,
   isEditMode,
   onSwitch,
@@ -119,6 +128,7 @@ function SortableProviderCard({
   onDuplicate,
   onConfigureUsage,
   onOpenWebsite,
+  onAutoFailover,
 }: SortableProviderCardProps) {
   const {
     setNodeRef,
@@ -139,6 +149,7 @@ function SortableProviderCard({
       <ProviderCard
         provider={provider}
         isCurrent={isCurrent}
+        backupProviderId={backupProviderId}
         appId={appId}
         isEditMode={isEditMode}
         onSwitch={onSwitch}
@@ -149,6 +160,7 @@ function SortableProviderCard({
           onConfigureUsage ? (item) => onConfigureUsage(item) : () => undefined
         }
         onOpenWebsite={onOpenWebsite}
+        onAutoFailover={onAutoFailover}
         dragHandleProps={{
           attributes,
           listeners,

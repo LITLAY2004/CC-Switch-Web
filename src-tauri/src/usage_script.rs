@@ -253,10 +253,50 @@ async fn send_http_request(config: &RequestConfig, timeout_secs: u64) -> Result<
 
     // 发送请求
     let resp = req.send().await.map_err(|e| {
+        let err_str = e.to_string();
+        let err_lower = err_str.to_lowercase();
+        let invalid_url = err_lower.contains("invalid url") || err_lower.contains("relative url");
+
+        let (msg_zh, msg_en) = if invalid_url {
+            (
+                "URL 格式无效，请检查脚本中的 request.url 配置",
+                "Invalid URL format; please check request.url in your script",
+            )
+        } else if e.is_connect() {
+            if err_lower.contains("connection refused") {
+                (
+                    "无法连接到目标服务器（连接被拒绝）",
+                    "Unable to connect to the server (connection refused)",
+                )
+            } else if err_lower.contains("dns") {
+                (
+                    "DNS 解析失败，请检查域名是否正确",
+                    "DNS resolution failed; please verify the domain name",
+                )
+            } else {
+                (
+                    "无法连接到目标服务器",
+                    "Unable to connect to the server",
+                )
+            }
+        } else if e.is_timeout() {
+            (
+                "请求超时，目标服务器响应过慢",
+                "Request timed out; the server took too long to respond",
+            )
+        } else if e.is_request() {
+            (
+                "请求构建失败，请检查 URL 和 HTTP 方法配置",
+                "Request build failed; please check the URL and HTTP method",
+            )
+        } else {
+            ("请求失败", "Request failed")
+        };
+
         AppError::localized(
             "usage_script.request_failed",
-            format!("请求失败: {e}"),
-            format!("Request failed: {e}"),
+            format!("{msg_zh}: {err_str}"),
+            format!("{msg_en}: {err_str}"),
         )
     })?;
 

@@ -96,6 +96,12 @@
     "sortUpdated": "排序已更新",
     "usageSaved": "用量查询配置已保存",
     "usageSaveFailed": "用量查询配置保存失败",
+    "backupLabel": "备用",
+    "backupPlaceholder": "选择备用供应商",
+    "backupUpdated": "已更新备用供应商为 {{name}}",
+    "backupUpdateFailed": "备用供应商更新失败：{{error}}",
+    "autoFailover": "已自动切换到备用供应商：{{name}}",
+    "autoFailoverFailed": "自动切换备用失败：{{error}}",
     "geminiConfig": "Gemini 配置",
     "geminiConfigHint": "使用 .env 格式配置 Gemini",
     "form": {
@@ -364,6 +370,14 @@
     "templateCustom": "自定义",
     "templateGeneral": "通用模板",
     "templateNewAPI": "NewAPI",
+    "templates": {
+      "custom": "自定义",
+      "general": "通用模板",
+      "newapi": "New API",
+      "packycode": "PackyCode",
+      "88code": "88code",
+      "privnode": "Privnode"
+    },
     "credentialsConfig": "凭证配置",
     "accessToken": "访问令牌",
     "accessTokenPlaceholder": "在'安全设置'里生成",

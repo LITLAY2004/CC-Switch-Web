@@ -1,0 +1,75 @@
+{
+  "providers": {
+    "codex": {
+      "base": {
+        "id": "codex-test-provider",
+        "name": "Codex Test Provider",
+        "settingsConfig": {
+          "auth": {
+            "apiKey": "sk-test-placeholder",
+            "baseUrl": "https://api.placeholder.local"
+          },
+          "config": ""
+        },
+        "notes": "Temporary provider created by API tests"
+      },
+      "update": {
+        "name": "Codex Test Provider (updated)",
+        "notes": "Updated by test suite"
+      }
+    }
+  },
+  "usageScripts": {
+    "baseUrl": "https://postman-echo.com/get?source=cc-switch-tests",
+    "packycode": "({\n  request: {\n    url: \"{{baseUrl}}\",\n    method: \"GET\",\n    headers: { \"X-Test-Provider\": \"PackyCode\" }\n  },\n  extractor: (response) => ({\n    planName: \"PackyCode\",\n    total: 1000,\n    used: 10,\n    remaining: 990,\n    unit: \"tokens\",\n    isValid: true,\n    extra: `echo:${response.args?.source || \"none\"}`\n  })\n});",
+    "88code": "({\n  request: {\n    url: \"{{baseUrl}}\",\n    method: \"GET\",\n    headers: { \"X-Test-Provider\": \"88code\" }\n  },\n  extractor: (response) => ({\n    planName: \"88code\",\n    total: 500,\n    used: 25,\n    remaining: 475,\n    unit: \"credits\",\n    isValid: true,\n    extra: response.url || \"\"\n  })\n});",
+    "privnode": "({\n  request: {\n    url: \"{{baseUrl}}\",\n    method: \"GET\",\n    headers: { \"X-Test-Provider\": \"Privnode\" }\n  },\n  extractor: (response) => ({\n    planName: \"Privnode\",\n    total: 100,\n    used: 5,\n    remaining: 95,\n    unit: \"GB\",\n    isValid: true\n  })\n});"
+  },
+  "settings": {
+    "update": {
+      "showInTray": false,
+      "minimizeToTrayOnClose": false,
+      "enableClaudePluginIntegration": true,
+      "language": "en",
+      "security": {
+        "auth": {
+          "selectedType": "basic"
+        }
+      }
+    }
+  },
+  "mcp": {
+    "server": {
+      "id": "test-mcp-server",
+      "name": "Test Local MCP",
+      "server": {
+        "command": "python",
+        "args": [
+          "-m",
+          "http.server",
+          "8765"
+        ]
+      },
+      "apps": {
+        "claude": false,
+        "codex": true,
+        "gemini": false
+      },
+      "description": "MCP server used by bash API tests",
+      "homepage": "https://example.com",
+      "docs": "https://example.com/docs",
+      "tags": [
+        "test",
+        "ci"
+      ]
+    },
+    "update": {
+      "description": "Updated by test suite",
+      "tags": [
+        "test",
+        "ci",
+        "updated"
+      ]
+    }
+  }
+}

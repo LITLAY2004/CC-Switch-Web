@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { settingsApi } from "@/lib/api";
 import { syncCurrentProvidersLiveSafe } from "@/utils/postChangeSync";
+import { isWeb } from "@/lib/api/adapter";
 
 export type ImportStatus =
   | "idle"
@@ -35,6 +36,9 @@ export function useImportExport(
   const { onImportSuccess } = options;
 
   const [selectedFile, setSelectedFile] = useState("");
+  const [selectedFileContent, setSelectedFileContent] = useState<string | null>(
+    null,
+  );
   const [status, setStatus] = useState<ImportStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [backupId, setBackupId] = useState<string | null>(null);
@@ -51,16 +55,44 @@ export function useImportExport(
 
   const clearSelection = useCallback(() => {
     setSelectedFile("");
+    setSelectedFileContent(null);
     setStatus("idle");
     setErrorMessage(null);
     setBackupId(null);
   }, []);
 
   const selectImportFile = useCallback(async () => {
+    if (isWeb()) {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "application/json";
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          setSelectedFile(file.name);
+          setSelectedFileContent(text);
+          setStatus("idle");
+          setErrorMessage(null);
+        } catch (error) {
+          console.error("[useImportExport] Failed to read file", error);
+          toast.error(
+            t("settings.selectFileFailed", {
+              defaultValue: "选择文件失败",
+            }),
+          );
+        }
+      };
+      input.click();
+      return;
+    }
+
     try {
       const filePath = await settingsApi.openFileDialog();
       if (filePath) {
         setSelectedFile(filePath);
+        setSelectedFileContent(null);
         setStatus("idle");
         setErrorMessage(null);
       }
@@ -91,7 +123,10 @@ export function useImportExport(
     setErrorMessage(null);
 
     try {
-      const result = await settingsApi.importConfigFromFile(selectedFile);
+      const result = await settingsApi.importConfigFromFile(
+        selectedFile,
+        selectedFileContent ?? undefined,
+      );
       if (!result.success) {
         setStatus("error");
         const message =
@@ -149,6 +184,45 @@ export function useImportExport(
   }, [isImporting, onImportSuccess, selectedFile, t]);
 
   const exportConfig = useCallback(async () => {
+    if (isWeb()) {
+      try {
+        const defaultName = `cc-switch-config-${
+          new Date().toISOString().split("T")[0]
+        }.json`;
+        const response = await fetch("/api/config/export", {
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        const data = await response.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = defaultName;
+        link.click();
+        URL.revokeObjectURL(url);
+        toast.success(
+          t("settings.configExported", {
+            defaultValue: "配置已导出",
+          }),
+        );
+      } catch (error) {
+        console.error("[useImportExport] Failed to export config (web)", error);
+        toast.error(
+          t("settings.exportFailedError", {
+            defaultValue: "导出配置失败: {{message}}",
+            message: error instanceof Error ? error.message : String(error ?? ""),
+          }),
+        );
+      }
+      return;
+    }
+
     try {
       const defaultName = `cc-switch-config-${
         new Date().toISOString().split("T")[0]
