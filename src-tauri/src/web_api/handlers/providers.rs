@@ -9,10 +9,10 @@ use axum::{
 use serde::Deserialize;
 
 use crate::{
-    provider::{Provider, UsageResult},
     error::AppError,
-    services::ConfigService,
+    provider::{Provider, UsageResult},
     services::provider::ProviderSortUpdate,
+    services::ConfigService,
     services::ProviderService,
     store::AppState,
 };
@@ -124,12 +124,12 @@ pub async fn import_default_config(
 ) -> ApiResult<bool> {
     let app_type = parse_app_type(&app)?;
     match ProviderService::import_default_config(&state, app_type) {
-      Ok(_) => Ok(Json(true)),
-      Err(err) => {
-        log::warn!("Import default config for {app} failed: {err}");
-        // 前端依赖返回值判定是否需要提示，这里返回 false 避免 400
-        Ok(Json(false))
-      }
+        Ok(_) => Ok(Json(true)),
+        Err(err) => {
+            log::warn!("Import default config for {app} failed: {err}");
+            // 前端依赖返回值判定是否需要提示，这里返回 false 避免 400
+            Ok(Json(false))
+        }
     }
 }
 
@@ -155,12 +155,12 @@ pub async fn query_provider_usage(
     let app_type = parse_app_type(&app)?;
     let result = ProviderService::query_usage(&state, app_type, &id).await;
     match result {
-      Ok(r) => Ok(Json(r)),
-      Err(err) => Ok(Json(UsageResult {
-        success: false,
-        data: None,
-        error: Some(err.to_string()),
-      })),
+        Ok(r) => Ok(Json(r)),
+        Err(err) => Ok(Json(UsageResult {
+            success: false,
+            data: None,
+            error: Some(err.to_string()),
+        })),
     }
 }
 
@@ -182,24 +182,24 @@ pub async fn test_usage_script(
 ) -> ApiResult<UsageResult> {
     let app_type = parse_app_type(&app)?;
     let result = ProviderService::test_usage_script(
-      &state,
-      app_type,
-      &id,
-      &req.script_code,
-      req.timeout.unwrap_or(10),
-      req.api_key.as_deref(),
-      req.base_url.as_deref(),
-      req.access_token.as_deref(),
-      req.user_id.as_deref(),
+        &state,
+        app_type,
+        &id,
+        &req.script_code,
+        req.timeout.unwrap_or(10),
+        req.api_key.as_deref(),
+        req.base_url.as_deref(),
+        req.access_token.as_deref(),
+        req.user_id.as_deref(),
     )
     .await;
     match result {
-      Ok(r) => Ok(Json(r)),
-      Err(err) => Ok(Json(UsageResult {
-        success: false,
-        data: None,
-        error: Some(err.to_string()),
-      })),
+        Ok(r) => Ok(Json(r)),
+        Err(err) => Ok(Json(UsageResult {
+            success: false,
+            data: None,
+            error: Some(err.to_string()),
+        })),
     }
 }
 

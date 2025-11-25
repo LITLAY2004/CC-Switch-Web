@@ -9,6 +9,7 @@ use crate::gemini_config::get_gemini_settings_path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct McpStatus {
     pub user_config_path: String,
     pub user_config_exists: bool,

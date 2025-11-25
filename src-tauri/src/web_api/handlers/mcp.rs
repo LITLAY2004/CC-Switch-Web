@@ -2,11 +2,11 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use axum::http::StatusCode;
 use axum::{
     extract::{Path, State},
     Json,
 };
-use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -238,8 +238,5 @@ pub struct McpConfigResponse {
 }
 
 fn internal_error(err: impl ToString) -> ApiError {
-    ApiError::new(
-        StatusCode::INTERNAL_SERVER_ERROR,
-        err.to_string(),
-    )
+    ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
 }

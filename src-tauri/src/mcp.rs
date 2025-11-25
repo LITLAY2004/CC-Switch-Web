@@ -2,6 +2,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use crate::app_config::{AppType, McpConfig, MultiAppConfig};
+use crate::config::write_text_file;
 use crate::error::AppError;
 
 /// 基础校验：允许 stdio/http/sse；或省略 type（视为 stdio）。对应必填字段存在
@@ -1064,7 +1065,7 @@ pub fn sync_single_server_to_codex(
     doc["mcp_servers"][id] = Item::Table(toml_table);
 
     // 写回文件
-    std::fs::write(&config_path, doc.to_string()).map_err(|e| AppError::io(&config_path, e))?;
+    write_text_file(&config_path, &doc.to_string())?;
 
     Ok(())
 }
@@ -1100,7 +1101,7 @@ pub fn remove_server_from_codex(id: &str) -> Result<(), AppError> {
     }
 
     // 写回文件
-    std::fs::write(&config_path, doc.to_string()).map_err(|e| AppError::io(&config_path, e))?;
+    write_text_file(&config_path, &doc.to_string())?;
 
     Ok(())
 }

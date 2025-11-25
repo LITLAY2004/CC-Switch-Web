@@ -113,13 +113,12 @@ fn check_powershell_profiles(keywords: &[&str]) -> Result<Vec<EnvConflict>, Stri
                     if let Some(eq_pos) = trimmed.find('=') {
                         let var_part = &trimmed[5..eq_pos];
                         let var_name = var_part.trim();
-                        let var_value =
-                            trimmed[eq_pos + 1..].trim().trim_matches('"').trim_matches('\'');
+                        let var_value = trimmed[eq_pos + 1..]
+                            .trim()
+                            .trim_matches('"')
+                            .trim_matches('\'');
 
-                        if keywords
-                            .iter()
-                            .any(|k| var_name.to_uppercase().contains(k))
-                        {
+                        if keywords.iter().any(|k| var_name.to_uppercase().contains(k)) {
                             conflicts.push(EnvConflict {
                                 var_name: var_name.to_string(),
                                 var_value: var_value.to_string(),
@@ -137,15 +136,11 @@ fn check_powershell_profiles(keywords: &[&str]) -> Result<Vec<EnvConflict>, Stri
                             let args = &trimmed[start + 1..end];
                             let parts: Vec<&str> = args.split(',').collect();
                             if parts.len() >= 2 {
-                                let var_name =
-                                    parts[0].trim().trim_matches('"').trim_matches('\'');
+                                let var_name = parts[0].trim().trim_matches('"').trim_matches('\'');
                                 let var_value =
                                     parts[1].trim().trim_matches('"').trim_matches('\'');
 
-                                if keywords
-                                    .iter()
-                                    .any(|k| var_name.to_uppercase().contains(k))
-                                {
+                                if keywords.iter().any(|k| var_name.to_uppercase().contains(k)) {
                                     conflicts.push(EnvConflict {
                                         var_name: var_name.to_string(),
                                         var_value: var_value.to_string(),

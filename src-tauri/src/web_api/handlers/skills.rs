@@ -29,10 +29,7 @@ pub async fn list_skills(State(state): State<Arc<AppState>>) -> ApiResult<Vec<Sk
     };
 
     let service = SkillService::new().map_err(internal_error)?;
-    let skills = service
-        .list_skills(repos)
-        .await
-        .map_err(internal_error)?;
+    let skills = service.list_skills(repos).await.map_err(internal_error)?;
     Ok(Json(skills))
 }
 
@@ -52,19 +49,17 @@ pub async fn install_skill(
             .map_err(ApiError::from)?;
         cfg.skills.repos.clone()
     };
-    let skills = service
-        .list_skills(repos)
-        .await
-        .map_err(internal_error)?;
-    let skill = skills.iter().find(|s| s.directory.eq_ignore_ascii_case(&directory)).ok_or_else(
-        || {
+    let skills = service.list_skills(repos).await.map_err(internal_error)?;
+    let skill = skills
+        .iter()
+        .find(|s| s.directory.eq_ignore_ascii_case(&directory))
+        .ok_or_else(|| {
             ApiError::bad_request(format_skill_error(
                 "SKILL_NOT_FOUND",
                 &[("directory", directory.as_str())],
                 Some("checkRepoUrl"),
             ))
-        },
-    )?;
+        })?;
 
     if !skill.installed {
         let repo = SkillRepo {

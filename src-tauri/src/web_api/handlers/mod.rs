@@ -13,8 +13,8 @@ use crate::{app_config::AppType, error::AppError};
 
 pub mod config;
 pub mod mcp;
-pub mod providers;
 pub mod prompts;
+pub mod providers;
 pub mod settings;
 pub mod skills;
 pub mod system;
