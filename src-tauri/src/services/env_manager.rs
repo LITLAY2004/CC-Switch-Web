@@ -142,7 +142,22 @@ fn delete_single_env(conflict: &EnvConflict) -> Result<(), String> {
             Ok(())
         }
         "system" => {
-            // On Unix, we can't directly delete process environment variables
+            // 系统级环境变量（从进程环境检测到）无法通过程序直接持久删除
+            // 它们可能来自：
+            // - 父进程继承
+            // - 系统启动脚本
+            // - /etc/environment
+            // - 其他系统级配置
+            //
+            // 只能从当前进程移除（避免后续扫描继续报冲突），但不保证持久化
+            std::env::remove_var(&conflict.var_name);
+
+            // 返回一个信息性的 "成功"，但在日志中记录需要手动处理
+            log::info!(
+                "已从当前进程移除环境变量 {}，但此变量来自系统级配置，重启后可能仍然存在。建议检查 /etc/environment 或系统启动脚本。",
+                conflict.var_name
+            );
+
             Ok(())
         }
         _ => Err(format!("未知的环境变量来源类型: {}", conflict.source_type)),

@@ -71,7 +71,26 @@ fn enforce_permissions(path: &Path) -> io::Result<()> {
     fs::set_permissions(path, PermissionsExt::from_mode(0o600))
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+fn enforce_permissions(path: &Path) -> io::Result<()> {
+    use std::process::Command;
+
+    let path_str = path.to_string_lossy();
+
+    // Use icacls to remove inheritance and grant only the current user full control.
+    let output = Command::new("icacls")
+        .args([&*path_str, "/inheritance:r", "/grant:r", "*S-1-3-4:F"])
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        log::warn!("Failed to set Windows file permissions: {}", stderr);
+    }
+
+    Ok(())
+}
+
+#[cfg(all(not(unix), not(windows)))]
 fn enforce_permissions(_path: &Path) -> io::Result<()> {
     Ok(())
 }
@@ -87,7 +106,7 @@ fn load_or_generate_password() -> Result<(String, PathBuf), Box<dyn std::error::
         }
     }
 
-    let password = generate_password(16);
+    let password = generate_password(24);
 
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -121,20 +140,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .and_then(|value| value.parse::<u16>().ok())
         .unwrap_or(3000);
 
-    let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let addr: SocketAddr = format!("{host}:{port}")
         .parse()
         .unwrap_or_else(|_| {
-            log::warn!("Invalid HOST `{host}`, falling back to 0.0.0.0");
-            SocketAddr::from(([0, 0, 0, 0], port))
+            log::warn!("Invalid HOST `{host}`, falling back to 127.0.0.1");
+            SocketAddr::from(([127, 0, 0, 1], port))
         });
 
+    let allow_insecure =
+        env::var("ALLOW_HTTP_BASIC_OVER_HTTP").is_ok_and(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "on"));
+    if addr.ip().is_unspecified() && !allow_insecure {
+        log::warn!(
+            "当前以 HTTP 监听 0.0.0.0，Basic/Bearer 凭证可能被截获。如需公开，请在反向代理中终止 TLS 并设置 ALLOW_HTTP_BASIC_OVER_HTTP=1"
+        );
+    } else if !addr.ip().is_loopback() && !allow_insecure {
+        log::warn!(
+            "监听非本地地址 {}，建议启用 TLS 反代或设置 ALLOW_HTTP_BASIC_OVER_HTTP=1 明确接受风险",
+            addr
+        );
+    }
+
     info!(
-        "Starting web server on http://{} with Basic Auth (username: admin, password file: {})",
+        "Starting web server on http://{} with file-based credentials at {} (username: admin, token stored only on disk)",
         addr,
         password_path.display()
     );
-    println!("Web console login -> user: admin, password: {}", password);
+    println!(
+        "Web console login -> user: admin, token path: {} (content not printed for safety)",
+        password_path.display()
+    );
 
     let listener = TcpListener::bind(addr).await?;
     serve(listener, app)

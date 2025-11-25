@@ -168,14 +168,35 @@ pub fn atomic_write(path: &Path, data: &[u8]) -> Result<(), AppError> {
 
     #[cfg(windows)]
     {
-        // Windows 上 rename 目标存在会失败，先移除再重命名（尽量接近原子性）
-        if path.exists() {
-            let _ = fs::remove_file(path);
+        // Windows 原子替换：使用重命名重试机制
+        // 首先尝试直接重命名（如果目标不存在会成功）
+        match fs::rename(&tmp, path) {
+            Ok(_) => {}
+            Err(_) => {
+                // 目标存在时，使用 cmd /c move /y 实现原子替换
+                // move /y 在 Windows 上会原子地替换目标文件
+                use std::process::Command;
+                let tmp_str = tmp.to_string_lossy();
+                let path_str = path.to_string_lossy();
+
+                let output = Command::new("cmd")
+                    .args(["/c", "move", "/y", &tmp_str, &path_str])
+                    .output()
+                    .map_err(|e| AppError::IoContext {
+                        context: format!("执行 move 命令失败: {}", e),
+                        source: e,
+                    })?;
+
+                if !output.status.success() {
+                    // move 失败，回退到 remove + rename
+                    let _ = fs::remove_file(path);
+                    fs::rename(&tmp, path).map_err(|e| AppError::IoContext {
+                        context: format!("原子替换失败: {} -> {}", tmp.display(), path.display()),
+                        source: e,
+                    })?;
+                }
+            }
         }
-        fs::rename(&tmp, path).map_err(|e| AppError::IoContext {
-            context: format!("原子替换失败: {} -> {}", tmp.display(), path.display()),
-            source: e,
-        })?;
     }
 
     #[cfg(not(windows))]

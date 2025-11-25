@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-#[cfg(not(target_os = "windows"))]
 use std::fs;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,6 +22,10 @@ pub fn check_env_conflicts(app: &str) -> Result<Vec<EnvConflict>, String> {
 
     // Check system environment variables
     conflicts.extend(check_system_env(&keywords)?);
+
+    // Check PowerShell profile files (Windows only)
+    #[cfg(target_os = "windows")]
+    conflicts.extend(check_powershell_profiles(&keywords)?);
 
     // Check shell configuration files (Unix only)
     #[cfg(not(target_os = "windows"))]
@@ -72,6 +75,88 @@ fn check_system_env(keywords: &[&str]) -> Result<Vec<EnvConflict>, String> {
                     source_type: "system".to_string(),
                     source_path: "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment".to_string(),
                 });
+            }
+        }
+    }
+
+    Ok(conflicts)
+}
+
+/// Check PowerShell profile files for environment variable exports (Windows only)
+#[cfg(target_os = "windows")]
+fn check_powershell_profiles(keywords: &[&str]) -> Result<Vec<EnvConflict>, String> {
+    let mut conflicts = Vec::new();
+
+    let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
+    if user_profile.is_empty() {
+        return Ok(conflicts);
+    }
+
+    let profile_paths = vec![
+        format!(
+            "{}\\Documents\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1",
+            user_profile
+        ),
+        format!(
+            "{}\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1",
+            user_profile
+        ),
+    ];
+
+    for file_path in profile_paths {
+        if let Ok(content) = fs::read_to_string(&file_path) {
+            for (line_num, line) in content.lines().enumerate() {
+                let trimmed = line.trim();
+
+                // Match: $env:VAR_NAME = "value"
+                if trimmed.starts_with("$env:") {
+                    if let Some(eq_pos) = trimmed.find('=') {
+                        let var_part = &trimmed[5..eq_pos];
+                        let var_name = var_part.trim();
+                        let var_value =
+                            trimmed[eq_pos + 1..].trim().trim_matches('"').trim_matches('\'');
+
+                        if keywords
+                            .iter()
+                            .any(|k| var_name.to_uppercase().contains(k))
+                        {
+                            conflicts.push(EnvConflict {
+                                var_name: var_name.to_string(),
+                                var_value: var_value.to_string(),
+                                source_type: "file".to_string(),
+                                source_path: format!("{}:{}", file_path, line_num + 1),
+                            });
+                        }
+                    }
+                }
+
+                // Match: [Environment]::SetEnvironmentVariable("VAR_NAME", "value")
+                if trimmed.contains("SetEnvironmentVariable") {
+                    if let Some(start) = trimmed.find('(') {
+                        if let Some(end) = trimmed.rfind(')') {
+                            let args = &trimmed[start + 1..end];
+                            let parts: Vec<&str> = args.split(',').collect();
+                            if parts.len() >= 2 {
+                                let var_name =
+                                    parts[0].trim().trim_matches('"').trim_matches('\'');
+                                let var_value =
+                                    parts[1].trim().trim_matches('"').trim_matches('\'');
+
+                                if keywords
+                                    .iter()
+                                    .any(|k| var_name.to_uppercase().contains(k))
+                                {
+                                    conflicts.push(EnvConflict {
+                                        var_name: var_name.to_string(),
+                                        var_value: var_value.to_string(),
+                                        source_type: "file".to_string(),
+                                        source_path: format!("{}:{}", file_path, line_num + 1),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
