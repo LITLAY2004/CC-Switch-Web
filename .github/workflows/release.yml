@@ -96,29 +96,30 @@ jobs:
             echo "请检查 GitHub 仓库 Settings > Secrets and variables > Actions" >&2
             exit 1
           fi
-          
           RAW="${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}"
+          # 清理 CRLF 与尾随空格，避免 base64 解析失败
+          RAW_CLEAN=$(printf '%s' "$RAW" | tr -d '\r' | sed 's/[ \t]*$//')
           # 目标：提供正确的私钥“文件路径”给 Tauri CLI，避免内容解码歧义
           KEY_PATH="$RUNNER_TEMP/tauri_signing.key"
           # 情况 1：原始两行文本（第一行以 "untrusted comment:" 开头）
-          if echo "$RAW" | head -n1 | grep -q '^untrusted comment:'; then
-            printf '%s\n' "$RAW" > "$KEY_PATH"
+          if echo "$RAW_CLEAN" | head -n1 | grep -q '^untrusted comment:'; then
+            printf '%s\n' "$RAW_CLEAN" > "$KEY_PATH"
             echo "✅ 使用原始两行密钥文件格式"
           else
             # 情况 2：整体被 base64 包裹（解包后应当是两行）
-            if DECODED=$(printf '%s' "$RAW" | (base64 --decode 2>/dev/null || base64 -D 2>/dev/null)) \
+            if DECODED=$(printf '%s' "$RAW_CLEAN" | (base64 --decode --ignore-garbage 2>/dev/null || base64 -D -i 2>/dev/null)) \
                && echo "$DECODED" | head -n1 | grep -q '^untrusted comment:'; then
               printf '%s\n' "$DECODED" > "$KEY_PATH"
               echo "✅ 成功解码 base64 包裹密钥，已还原为两行文件"
             else
               # 情况 3：已是第二行（纯 Base64 一行）→ 构造两行文件
-              if echo "$RAW" | grep -Eq '^[A-Za-z0-9+/=]+$'; then
-                ONE=$(printf '%s' "$RAW" | tr -d '\r\n')
+              if echo "$RAW_CLEAN" | grep -Eq '^[A-Za-z0-9+/=]+$'; then
+                ONE=$(printf '%s' "$RAW_CLEAN" | tr -d '\r\n')
                 printf '%s\n%s\n' "untrusted comment: tauri signing key" "$ONE" > "$KEY_PATH"
                 echo "✅ 使用一行 Base64 私钥，已构造两行文件"
               else
                 echo "❌ TAURI_SIGNING_PRIVATE_KEY 格式无法识别：既不是两行原文，也不是其 base64，亦非一行 base64" >&2
-                echo "密钥前10个字符: $(echo "$RAW" | head -c 10)..." >&2
+                echo "密钥前10个字符: $(echo "$RAW_CLEAN" | head -c 10)..." >&2
                 exit 1
               fi
             fi
