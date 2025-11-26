@@ -58,7 +58,7 @@
       }
     },
     "updater": {
-      "pubkey": "RWQQlONYfMT2AFIOp/9u/wr1tVeS8XU5mYTFdeca4IDvXL6K7rkpeR8e",
+      "pubkey": "RWSQ0NlFkIxo2ohcQMjwk1/f4Ph2tjRDWnMzDsop0vNGd4GRs91rl3Os",
       "endpoints": [
         "https://github.com/LITLAY2004/CC-Switch-Web/releases/latest/download/latest.json"
       ]
