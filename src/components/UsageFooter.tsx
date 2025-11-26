@@ -141,9 +141,11 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
   // 无数据时不显示
   if (usageDataList.length === 0) return null;
 
-  const autoTokenApplied =
-    typeof window !== "undefined" &&
-    Boolean((window as any).__CC_SWITCH_TOKENS__?.apiToken);
+  // 检测是否已自动应用前端注入的 Token（优先使用 prop，否则检测 window）
+  const isTokenApplied =
+    autoTokenApplied ||
+    (typeof window !== "undefined" &&
+      Boolean((window as any).__CC_SWITCH_TOKENS__?.apiToken));
 
   // 内联模式：仅显示第一个套餐的核心数据（分上下两行）
   if (inline) {
@@ -166,7 +168,7 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
       <div className="flex flex-col gap-1 text-xs flex-shrink-0">
         {/* 第一行：刷新时间 + 刷新按钮 */}
         <div className="flex items-center gap-2 justify-end">
-          {autoTokenApplied && (
+          {isTokenApplied && (
             <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:ring-emerald-800">
               {t("usage.autoToken")}
             </span>
@@ -244,7 +246,7 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
           {t("usage.planUsage")}
         </span>
         <div className="flex items-center gap-2">
-          {autoTokenApplied && (
+          {isTokenApplied && (
             <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:ring-emerald-800">
               {t("usage.autoToken")}
             </span>
