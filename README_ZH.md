@@ -1,77 +1,158 @@
-# CC-Switch-Web — Claude Code / Codex / Gemini 的 Web/无头助手
+# CC-Switch-Web — Claude Code / Codex / Gemini CLI 配置管理工具
 
-English | 中文 | [更新日志](CHANGELOG.md)
+[English](README.md) | 中文 | [更新日志](CHANGELOG.md)
 
-cc-switch-web 是 **cc-switch** 桌面版的二次开发，面向 Web/服务器和无头场景。保留统一的供应商/MCP/技能/提示词管理，增强 Web 安全默认，重点支持云端部署。
+CC-Switch-Web 是一个统一的 AI CLI 配置管理工具，支持 **Claude Code**、**Codex** 和 **Gemini CLI**。提供桌面应用和 Web 服务器两种运行模式，用于管理 AI 供应商、MCP 服务器、技能和系统提示词。
 
-## 为什么选择 cc-switch-web（对比桌面版）
-- 云端/无头友好：纯 Web Server，无需桌面环境。
-- 统一 HTTP 接口：Claude Code / Codex / Gemini 一套 API。
-- 模板更丰富：新增 MCP/技能/供应商预设。
-- 默认更安全：自动生成 Basic Auth 密码；默认同源，跨域需显式开启。
-- 可控监听：`HOST`/`PORT` 可配，便于 HTTPS 反代。
-- 智能容灾：备用供应商自动切换，转发异常自动兜底。
+## 功能特性
 
-## 亮点
-- Claude/Codex/Gemini 供应商切换与实时写入。
-- 统一 MCP 管理，支持跨客户端导入/导出。
-- 技能市场：仓库扫描 + 一键安装。
-- 提示词管理：内置 CodeMirror 编辑器。
-- 导入导出 + 备份轮换，目录重定向（适配 WSL/云同步）。
+- **多供应商管理**：一键切换不同 AI 供应商（OpenAI 兼容端点）
+- **统一 MCP 管理**：跨 Claude/Codex/Gemini 配置 Model Context Protocol 服务器
+- **技能市场**：从 GitHub 仓库浏览并安装 Claude 技能
+- **提示词管理**：内置 CodeMirror 编辑器创建和管理系统提示词
+- **备用供应商自动切换**：主供应商失败时自动切换到备用
+- **导入/导出**：备份和恢复所有配置，支持版本历史
+- **跨平台**：支持 Windows、macOS、Linux（桌面版）和 Web/Docker（服务器版）
 
-## 快速开始（Web）
+## 快速开始
+
+### 方式一：桌面应用（推荐）
+
+下载适合你平台的最新版本：
+
+| 平台 | 下载链接 |
+|------|----------|
+| **Windows** | [CC-Switch-v0.2.0-Windows.msi](https://github.com/LITLAY2004/CC-Switch-Web/releases/download/v0.2.0/CC-Switch-v0.2.0-Windows.msi)（安装版） |
+| | [CC-Switch-v0.2.0-Windows-Portable.zip](https://github.com/LITLAY2004/CC-Switch-Web/releases/download/v0.2.0/CC-Switch-v0.2.0-Windows-Portable.zip)（绿色版） |
+| **macOS** | [CC-Switch-v0.2.0-macOS.zip](https://github.com/LITLAY2004/CC-Switch-Web/releases/download/v0.2.0/CC-Switch-v0.2.0-macOS.zip) |
+| **Linux** | [CC-Switch-v0.2.0-Linux.AppImage](https://github.com/LITLAY2004/CC-Switch-Web/releases/download/v0.2.0/CC-Switch-v0.2.0-Linux.AppImage) |
+| | [CC-Switch-v0.2.0-Linux.deb](https://github.com/LITLAY2004/CC-Switch-Web/releases/download/v0.2.0/CC-Switch-v0.2.0-Linux.deb)（Debian/Ubuntu） |
+
+**macOS 提示**：如遇"已损坏"警告，在终端执行：`xattr -cr "/Applications/CC Switch.app"`
+
+**Linux AppImage**：先添加执行权限：`chmod +x CC-Switch-*.AppImage`
+
+### 方式二：Web 服务器模式（无头/云端）
+
+适用于没有图形界面的服务器环境：
+
 ```bash
+# 1. 克隆并安装依赖
+git clone https://github.com/LITLAY2004/CC-Switch-Web.git
+cd CC-Switch-Web
 pnpm install
+
+# 2. 构建 Web 资源
 pnpm build:web
+
+# 3. 构建并运行服务器
 cd src-tauri
-cargo build --release --features web-server --bin cc-switch-server
-HOST=0.0.0.0 PORT=3000 ./target/release/cc-switch-server
+cargo build --release --features web-server --example server
+HOST=0.0.0.0 PORT=3000 ./target/release/examples/server
 ```
-- 登录：`admin` / `~/.cc-switch/web_password` 自动生成的密码。
-- CORS：默认同源；跨域需设置 `CORS_ALLOW_ORIGINS`（可选 `CORS_ALLOW_CREDENTIALS=true`）。
-- Web 模式不支持系统文件/目录选择器，请手动输入路径。
+
+- **登录凭据**：用户名 `admin`，密码在 `~/.cc-switch/web_password`（首次运行自动生成）
+- **跨域设置**：默认同源；需跨域请设置 `CORS_ALLOW_ORIGINS=https://your-domain.com`
+- **注意**：Web 模式不支持原生文件选择器，请手动输入路径
+
+## 使用指南
+
+### 1. 添加供应商
+
+1. 启动 CC-Switch，选择目标应用（Claude Code / Codex / Gemini）
+2. 点击 **"添加供应商"** 按钮
+3. 选择预设（如 OpenRouter、DeepSeek、智谱 GLM）或选择"自定义"
+4. 填写配置：
+   - **名称**：供应商显示名称
+   - **Base URL**：API 端点（如 `https://api.openrouter.ai/v1`）
+   - **API Key**：该供应商的 API 密钥
+   - **模型**（可选）：指定使用的模型
+5. 点击 **保存**
+
+### 2. 切换供应商
+
+- 点击任意供应商卡片上的 **"启用"** 按钮即可激活
+- 激活的供应商配置会立即写入 CLI 配置文件
+- 使用系统托盘菜单可快速切换，无需打开应用窗口
+
+### 3. 管理 MCP 服务器
+
+1. 进入 **MCP** 标签页
+2. 点击 **"添加服务器"** 配置新的 MCP 服务器
+3. 选择传输类型：`stdio`、`http` 或 `sse`
+4. 对于 stdio 服务器，提供命令和参数
+5. 使用开关启用/禁用服务器
+
+### 4. 安装技能（仅 Claude）
+
+1. 进入 **技能** 标签页
+2. 浏览已配置仓库中的可用技能
+3. 点击 **"安装"** 将技能添加到 `~/.claude/skills/`
+4. 管理已安装的技能，可添加自定义仓库
+
+### 5. 系统提示词
+
+1. 进入 **提示词** 标签页
+2. 创建新提示词或编辑现有提示词
+3. 启用提示词后会写入对应 CLI 的提示词文件：
+   - Claude: `~/.claude/CLAUDE.md`
+   - Codex: `~/.codex/AGENTS.md`
+   - Gemini: `~/.gemini/GEMINI.md`
+
+## 配置文件
+
+CC-Switch 管理以下配置文件：
+
+| 应用 | 配置文件 |
+|------|----------|
+| **Claude Code** | `~/.claude.json`（MCP）、`~/.claude/settings.json` |
+| **Codex** | `~/.codex/auth.json`、`~/.codex/config.toml` |
+| **Gemini** | `~/.gemini/.env`、`~/.gemini/settings.json` |
+
+CC-Switch 自身配置：`~/.cc-switch/config.json`
 
 ## 截图
-| Skills 市场 | 提示词编辑 | 高级设置 |
+
+| 技能市场 | 提示词编辑 | 高级设置 |
 | :--: | :--: | :--: |
 | ![Skills](assets/screenshots/web-skills.png) | ![Prompt](assets/screenshots/web-prompt.png) | ![Settings](assets/screenshots/web-settings.png) |
 
-*（请将截图放在上述路径下）*
+## 开发
 
-## 关于上游项目
-本项目基于 Jason Young（farion1231）的开源 **cc-switch**。上游通过 Tauri 桌面端统一了供应商切换、MCP 管理、技能和提示词，并具备完善的本地化与安全特性。cc-switch-web 在此基础上增加 Web/服务器运行模式、CORS 控制、默认 Basic Auth、更多模板，以及云端/无头部署的文档支持。感谢上游作者和贡献者的基础工作。
+```bash
+# 安装依赖
+pnpm install
 
-## 维护说明
-新上线的 Web/无头版本，部分细节仍在打磨。如果你遇到 bug 或有功能建议，欢迎提 issue。看到反馈后一周内会集中更新，之后每周定期维护，目标是把它打造成云端放心使用的可靠工具。
-## 项目结构（关键）
-- `src/` React + TypeScript 前端
-- `src-tauri/` Rust 后端（Tauri/Web Server）
-- `src-tauri/src/web_api/` Axum HTTP API（Web 模式）
-- `dist-web/` Web 构建产物（不提交）
-- `tests/` Bash + MSW + Vitest 测试
+# 开发模式运行桌面应用
+pnpm tauri dev
 
-## 使用命令
-- 开发（桌面渲染器）：`pnpm dev:renderer`
-- 构建 Web 资源：`pnpm build:web`
-- 运行 Web Server：`HOST=0.0.0.0 PORT=3000 ./src-tauri/target/release/cc-switch-server`
-- 构建 Server：`cd src-tauri && cargo build --release --features web-server --bin cc-switch-server`
-- Web API 测试：`bash tests/run-all.sh`（需要运行中的 server，依赖 curl/jq）
+# 仅运行前端开发服务器
+pnpm dev:renderer
+
+# 构建桌面应用
+pnpm tauri build
+
+# 仅构建 Web 资源
+pnpm build:web
+
+# 运行测试
+pnpm test
+```
 
 ## 技术栈
-- 前端：React 18、TypeScript、Vite、Tailwind、TanStack Query、Radix UI、CodeMirror
-- 后端：Rust、Axum、Tauri（共享逻辑）、tower-http
-- 工具：pnpm、Vitest、MSW、Bash + curl/jq（API 测试）
 
-## 测试覆盖
-- `tests/api`、`tests/integration`：Bash API/集成测试（供应商、设置、MCP、用量、持久化）。
-- MSW/Vitest 组件 & Hook 测试。
-- `bash tests/run-all.sh` 可覆盖 Web API（需运行服务器）。
+- **前端**：React 18、TypeScript、Vite、Tailwind CSS、TanStack Query、Radix UI、CodeMirror
+- **后端**：Rust、Tauri 2.x、Axum（Web 服务器模式）、tower-http
+- **工具链**：pnpm、Vitest、MSW
 
 ## 更新日志
-参见 [CHANGELOG.md](CHANGELOG.md)（当前版本：v0.1.0）。
 
-## 项目亮点回顾
-- 原生 Web/Server 支持，默认安全（Basic Auth + 同源）。
-+- 统一管理 Claude/Codex/Gemini 的供应商/MCP/技能/提示词。
-+- 丰富预设与备用供应商自动切换。
-+- 导入/导出含备份，支持 WSL/云同步目录重定向。
+参见 [CHANGELOG.md](CHANGELOG.md) — 当前版本：**v0.2.0**
+
+## 致谢
+
+本项目基于 Jason Young (farion1231) 的开源项目 **cc-switch** 二次开发。上游 Tauri 桌面应用统一了供应商切换、MCP 管理、技能和提示词功能，具备完善的国际化和安全特性。CC-Switch-Web 在此基础上增加了 Web/服务器运行模式、CORS 控制、Basic Auth、更多模板，以及云端/无头部署文档。
+
+## 许可证
+
+MIT License — 详见 [LICENSE](LICENSE)

@@ -2,81 +2,157 @@
 
 English | [中文](README_ZH.md) | [Changelog](CHANGELOG.md)
 
-cc-switch-web is a second-development fork of the original **cc-switch** desktop app, rebuilt for web/server and headless environments. It keeps unified provider/MCP/skills/prompt management, adds safer web defaults, and focuses on cloud compatibility.
+CC-Switch-Web is a unified configuration management tool for **Claude Code**, **Codex**, and **Gemini CLI**. It provides both a desktop application and a web server mode for managing AI CLI providers, MCP servers, skills, and system prompts.
 
-## Why cc-switch-web (vs desktop)
-- Cloud/headless ready: run as a web server, no GUI needed.
-- Unified HTTP API for Claude Code, Codex, Gemini.
-- Rich presets: extra MCP/skill/provider templates.
-- Safer defaults: generated Basic Auth password; same-origin unless CORS is explicitly allowed.
-- Configurable `HOST`/`PORT` for reverse proxies/TLS.
-- Backup auto-failover: switch to a backup provider when relays fail.
+## Features
 
-## Highlights
-- Provider switching with live sync (Claude/Codex/Gemini).
-- Unified MCP management (import/export across clients).
-- Skills marketplace with repo scanning and one-click install.
-- Prompt management with CodeMirror editor.
-- Import/export with backups; directory overrides for WSL/cloud sync.
+- **Multi-Provider Management**: Switch between different AI providers (OpenAI-compatible endpoints) with one click
+- **Unified MCP Management**: Configure Model Context Protocol servers across Claude/Codex/Gemini
+- **Skills Marketplace**: Browse and install Claude skills from GitHub repositories
+- **Prompt Management**: Create and manage system prompts with a built-in CodeMirror editor
+- **Backup Auto-failover**: Automatically switch to backup providers when primary fails
+- **Import/Export**: Backup and restore all configurations with version history
+- **Cross-platform**: Available for Windows, macOS, Linux (desktop) and Web/Docker (server)
 
-## Quick Start (Web)
+## Quick Start
+
+### Option 1: Desktop Application (Recommended)
+
+Download the latest release for your platform:
+
+| Platform | Download |
+|----------|----------|
+| **Windows** | [CC-Switch-v0.2.0-Windows.msi](https://github.com/LITLAY2004/CC-Switch-Web/releases/download/v0.2.0/CC-Switch-v0.2.0-Windows.msi) (Installer) |
+| | [CC-Switch-v0.2.0-Windows-Portable.zip](https://github.com/LITLAY2004/CC-Switch-Web/releases/download/v0.2.0/CC-Switch-v0.2.0-Windows-Portable.zip) (Portable) |
+| **macOS** | [CC-Switch-v0.2.0-macOS.zip](https://github.com/LITLAY2004/CC-Switch-Web/releases/download/v0.2.0/CC-Switch-v0.2.0-macOS.zip) |
+| **Linux** | [CC-Switch-v0.2.0-Linux.AppImage](https://github.com/LITLAY2004/CC-Switch-Web/releases/download/v0.2.0/CC-Switch-v0.2.0-Linux.AppImage) |
+| | [CC-Switch-v0.2.0-Linux.deb](https://github.com/LITLAY2004/CC-Switch-Web/releases/download/v0.2.0/CC-Switch-v0.2.0-Linux.deb) (Debian/Ubuntu) |
+
+**macOS Note**: If you see "damaged" warning, run: `xattr -cr "/Applications/CC Switch.app"`
+
+**Linux AppImage**: Make executable first: `chmod +x CC-Switch-*.AppImage`
+
+### Option 2: Web Server Mode (Headless/Cloud)
+
+For server environments without GUI:
+
 ```bash
+# 1. Clone and install dependencies
+git clone https://github.com/LITLAY2004/CC-Switch-Web.git
+cd CC-Switch-Web
 pnpm install
+
+# 2. Build web assets
 pnpm build:web
+
+# 3. Build and run server
 cd src-tauri
-cargo build --release --features web-server --bin cc-switch-server
-HOST=0.0.0.0 PORT=3000 ./target/release/cc-switch-server
+cargo build --release --features web-server --example server
+HOST=0.0.0.0 PORT=3000 ./target/release/examples/server
 ```
-- Login: `admin` / password in `~/.cc-switch/web_password` (auto-generated).
-- CORS: same-origin by default; set `CORS_ALLOW_ORIGINS` (optional `CORS_ALLOW_CREDENTIALS=true`) to allow cross-origin.
-- Web mode does not support native file/directory pickers—enter paths manually.
+
+- **Login**: `admin` / password in `~/.cc-switch/web_password` (auto-generated on first run)
+- **CORS**: Same-origin by default; set `CORS_ALLOW_ORIGINS=https://your-domain.com` for cross-origin
+- **Note**: Web mode doesn't support native file pickers—enter paths manually
+
+## Usage Guide
+
+### 1. Adding a Provider
+
+1. Launch CC-Switch and select your target app (Claude Code / Codex / Gemini)
+2. Click **"Add Provider"** button
+3. Choose a preset (e.g., OpenRouter, DeepSeek, GLM) or select "Custom"
+4. Fill in:
+   - **Name**: Display name for this provider
+   - **Base URL**: API endpoint (e.g., `https://api.openrouter.ai/v1`)
+   - **API Key**: Your API key for this provider
+   - **Model** (optional): Specific model to use
+5. Click **Save**
+
+### 2. Switching Providers
+
+- Click the **"Enable"** button on any provider card to activate it
+- The active provider will be written to your CLI's config file immediately
+- Use system tray menu for quick switching without opening the app
+
+### 3. Managing MCP Servers
+
+1. Go to **MCP** tab
+2. Click **"Add Server"** to configure a new MCP server
+3. Choose transport type: `stdio`, `http`, or `sse`
+4. For stdio servers, provide the command and arguments
+5. Enable/disable servers with the toggle switch
+
+### 4. Installing Skills (Claude only)
+
+1. Go to **Skills** tab
+2. Browse available skills from configured repositories
+3. Click **"Install"** to add a skill to `~/.claude/skills/`
+4. Manage installed skills and add custom repositories
+
+### 5. System Prompts
+
+1. Go to **Prompts** tab
+2. Create new prompts or edit existing ones
+3. Enable a prompt to write it to the CLI's prompt file:
+   - Claude: `~/.claude/CLAUDE.md`
+   - Codex: `~/.codex/AGENTS.md`
+   - Gemini: `~/.gemini/GEMINI.md`
+
+## Configuration Files
+
+CC-Switch manages these configuration files:
+
+| App | Config Files |
+|-----|--------------|
+| **Claude Code** | `~/.claude.json` (MCP), `~/.claude/settings.json` |
+| **Codex** | `~/.codex/auth.json`, `~/.codex/config.toml` |
+| **Gemini** | `~/.gemini/.env`, `~/.gemini/settings.json` |
+
+CC-Switch's own config: `~/.cc-switch/config.json`
 
 ## Screenshots
-| Skills marketplace | Prompt editor | Advanced settings |
+
+| Skills Marketplace | Prompt Editor | Advanced Settings |
 | :--: | :--: | :--: |
 | ![Skills](assets/screenshots/web-skills.png) | ![Prompt](assets/screenshots/web-prompt.png) | ![Settings](assets/screenshots/web-settings.png) |
 
-*(Place your screenshots at the above paths.)*
+## Development
 
-## Web Server Notes
-- File/dir pickers return 501 in web mode; use manual paths.
-- Same-origin by default; use `CORS_ALLOW_ORIGINS` (+ `CORS_ALLOW_CREDENTIALS=true` if needed) for cross-origin.
+```bash
+# Install dependencies
+pnpm install
 
-## Project Structure (key parts)
-- `src/` React/TypeScript frontend
-- `src-tauri/` Rust backend (Tauri/web-server)
-- `src-tauri/src/web_api/` Axum HTTP API for web mode
-- `dist-web/` Built web assets (not committed)
-- `tests/` Bash + MSW + Vitest tests
+# Run desktop app in dev mode
+pnpm tauri dev
 
-## Usage (common commands)
-- Dev (desktop renderer): `pnpm dev:renderer`
-- Build web assets: `pnpm build:web`
-- Run web server: `HOST=0.0.0.0 PORT=3000 ./src-tauri/target/release/cc-switch-server`
-- Build server: `cd src-tauri && cargo build --release --features web-server --bin cc-switch-server`
-- Full test suite (bash APIs): `bash tests/run-all.sh` (needs running server & curl/jq)
+# Run only the frontend dev server
+pnpm dev:renderer
+
+# Build desktop app
+pnpm tauri build
+
+# Build web assets only
+pnpm build:web
+
+# Run tests
+pnpm test
+```
 
 ## Tech Stack
-- Frontend: React 18, TypeScript, Vite, Tailwind, TanStack Query, Radix UI, CodeMirror
-- Backend: Rust, Axum, Tauri (for shared logic), tower-http
-- Tooling: pnpm, Vitest, MSW, Bash + curl/jq for API tests
 
-## Tests & Coverage
-- API/integration bash tests under `tests/api` and `tests/integration` (providers, settings, MCP, usage, persistence).
-- MSW/Vitest component/hooks tests for UI logic.
-- Run `bash tests/run-all.sh` for web API coverage (requires running server).
+- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, TanStack Query, Radix UI, CodeMirror
+- **Backend**: Rust, Tauri 2.x, Axum (web server mode), tower-http
+- **Tooling**: pnpm, Vitest, MSW
 
 ## Changelog
-See [CHANGELOG.md](CHANGELOG.md) (current version: v0.1.0).
 
-## Project Highlights (recap)
-- Web/server native (headless friendly), safe defaults (Basic Auth + same-origin).
-- Unified provider/MCP/skills/prompt management across Claude/Codex/Gemini.
-- Rich presets and backup auto-failover.
-- Import/export with backups; WSL/cloud directory overrides.
+See [CHANGELOG.md](CHANGELOG.md) — Current version: **v0.2.0**
 
-## About the upstream project
-This fork builds on **cc-switch** by Jason Young (farion1231). The upstream Tauri desktop app unified provider switching, MCP management, skills, and prompts with strong i18n and safety. cc-switch-web reuses that foundation, adds a web/server runtime, CORS controls, Basic Auth by default, more templates, and docs for cloud/headless deployment. Many thanks to the original author and contributors for the groundwork.
+## Credits
 
-## Maintenance note
-This is a newly published web/headless variant; some areas may still need polish. Please file issues for bugs or feature ideas. I’ll focus on updates during the coming week after seeing new issues, then shift to a weekly maintenance cadence until it’s solid for cloud development.
+This project is a fork of **cc-switch** by Jason Young (farion1231). The upstream Tauri desktop app unified provider switching, MCP management, skills, and prompts with strong i18n and safety. CC-Switch-Web adds web/server runtime, CORS controls, Basic Auth, more templates, and documentation for cloud/headless deployment.
+
+## License
+
+MIT License — See [LICENSE](LICENSE) for details.
