@@ -89,18 +89,28 @@ jobs:
 
       - name: Set Tauri signing key
         shell: bash
+        env:
+          RAW_TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          RAW_TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          # Tauri CLI 直接接受 tauri signer generate 输出的 base64 字符串
-          # 不需要任何解码或转换，直接传递即可
-          if [ -z "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" ]; then
+          set -euo pipefail
+          # Tauri CLI 期望：tauri signer generate / tauri signer encode 输出的单行 base64（无换行、无空格）
+          if [ -z "${RAW_TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
             echo "❌ TAURI_SIGNING_PRIVATE_KEY Secret 为空" >&2
             exit 1
           fi
-          echo "TAURI_SIGNING_PRIVATE_KEY=${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" >> "$GITHUB_ENV"
-          if [ -n "${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}" ]; then
-            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+          CLEAN_KEY=$(printf '%s' "$RAW_TAURI_SIGNING_PRIVATE_KEY" | tr -d ' \r\n')
+          if ! echo -n "$CLEAN_KEY" | base64 --decode >/dev/null 2>&1; then
+            echo "❌ TAURI_SIGNING_PRIVATE_KEY 不是有效的 base64（请使用 tauri signer generate 的 private 字段或 tauri signer encode 输出）" >&2
+            exit 1
           fi
-          echo "✅ Tauri signing key configured"
+          {
+            printf 'TAURI_SIGNING_PRIVATE_KEY=%s\n' "$CLEAN_KEY"
+            if [ -n "${RAW_TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]; then
+              printf 'TAURI_SIGNING_PRIVATE_KEY_PASSWORD=%s\n' "$RAW_TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
+            fi
+          } >> "$GITHUB_ENV"
+          echo "✅ Tauri signing key configured（已去除空白并通过 base64 校验）"
 
       - name: Build Tauri App (macOS)
         if: runner.os == 'macOS'
