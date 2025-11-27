@@ -58,6 +58,29 @@ NO_CHECKSUM=1 curl -fsSL https://...install.sh | bash
 
 For server environments without GUI:
 
+**One-Line Deploy** (recommended):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/LITLAY2004/CC-Switch-Web/main/scripts/deploy-web.sh | bash
+```
+
+This script will:
+- Check and install system dependencies (Node.js, pnpm, Rust, Linux build tools)
+- Clone the repository to `~/cc-switch-web`
+- Build frontend assets and Rust backend
+- Create a startup script
+
+**Advanced options**:
+```bash
+# Custom install directory and port
+INSTALL_DIR=/opt/cc-switch PORT=8080 curl -fsSL https://...deploy-web.sh | bash
+
+# Create systemd service for auto-start
+CREATE_SERVICE=1 curl -fsSL https://...deploy-web.sh | bash
+```
+
+**Manual installation**:
+
 ```bash
 # 1. Clone and install dependencies
 git clone https://github.com/LITLAY2004/CC-Switch-Web.git

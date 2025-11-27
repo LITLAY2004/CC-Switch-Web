@@ -58,6 +58,29 @@ NO_CHECKSUM=1 curl -fsSL https://...install.sh | bash
 
 适用于没有图形界面的服务器环境：
 
+**一键部署**（推荐）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/LITLAY2004/CC-Switch-Web/main/scripts/deploy-web.sh | bash
+```
+
+该脚本会：
+- 检查并安装系统依赖（Node.js、pnpm、Rust、Linux 编译工具）
+- 克隆仓库到 `~/cc-switch-web`
+- 构建前端资源和 Rust 后端
+- 创建启动脚本
+
+**高级选项**：
+```bash
+# 自定义安装目录和端口
+INSTALL_DIR=/opt/cc-switch PORT=8080 curl -fsSL https://...deploy-web.sh | bash
+
+# 创建 systemd 服务（开机自启）
+CREATE_SERVICE=1 curl -fsSL https://...deploy-web.sh | bash
+```
+
+**手动安装**：
+
 ```bash
 # 1. 克隆并安装依赖
 git clone https://github.com/LITLAY2004/CC-Switch-Web.git
