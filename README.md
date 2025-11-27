@@ -16,7 +16,7 @@ CC-Switch-Web is a unified configuration management tool for **Claude Code**, **
 
 ## Quick Start
 
-### Option 1: Desktop Application (Recommended)
+### Option 1: Desktop Application (Option2 is Recommended if use linux)
 
 Download the latest release for your platform:
 
