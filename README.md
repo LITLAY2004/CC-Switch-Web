@@ -32,6 +32,28 @@ Download the latest release for your platform:
 
 **Linux AppImage**: Make executable first: `chmod +x CC-Switch-*.AppImage`
 
+**Linux One-Line Install** (recommended):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/LITLAY2004/CC-Switch-Web/main/scripts/install.sh | bash
+```
+
+This script will:
+- Auto-detect your architecture (x86_64/aarch64)
+- Download the latest AppImage release
+- Verify SHA256 checksum (if available)
+- Install to `~/.local/bin/ccswitch` (user) or `/usr/local/bin/ccswitch` (root)
+- Create desktop entry and application icon
+
+**Advanced options**:
+```bash
+# Install specific version
+VERSION=v0.2.0 curl -fsSL https://...install.sh | bash
+
+# Skip checksum verification
+NO_CHECKSUM=1 curl -fsSL https://...install.sh | bash
+```
+
 ### Option 2: Web Server Mode (Headless/Cloud)
 
 For server environments without GUI:

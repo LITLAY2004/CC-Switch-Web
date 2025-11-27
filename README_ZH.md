@@ -32,6 +32,28 @@ CC-Switch-Web 是一个统一的 AI CLI 配置管理工具，支持 **Claude Cod
 
 **Linux AppImage**：先添加执行权限：`chmod +x CC-Switch-*.AppImage`
 
+**Linux 一键安装**（推荐）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/LITLAY2004/CC-Switch-Web/main/scripts/install.sh | bash
+```
+
+该脚本会：
+- 自动检测系统架构（x86_64/aarch64）
+- 下载最新版 AppImage
+- 校验 SHA256（如有校验文件）
+- 安装到 `~/.local/bin/ccswitch`（普通用户）或 `/usr/local/bin/ccswitch`（root）
+- 创建桌面快捷方式和应用图标
+
+**高级选项**：
+```bash
+# 安装指定版本
+VERSION=v0.2.0 curl -fsSL https://...install.sh | bash
+
+# 跳过校验
+NO_CHECKSUM=1 curl -fsSL https://...install.sh | bash
+```
+
 ### 方式二：Web 服务器模式（无头/云端）
 
 适用于没有图形界面的服务器环境：
