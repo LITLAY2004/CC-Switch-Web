@@ -6,12 +6,13 @@ use axum::{
 };
 
 use super::{
-    handlers::{config, mcp, prompts, providers, settings, skills, system},
+    handlers::{config, health, mcp, prompts, providers, settings, skills, system},
     SharedState,
 };
 
 pub fn create_router(state: SharedState) -> Router {
     Router::new()
+        .route("/health/status", get(health::proxy_status))
         .nest("/providers", provider_routes())
         .nest("/mcp", mcp_routes())
         .nest("/prompts", prompt_routes())

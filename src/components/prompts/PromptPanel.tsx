@@ -6,6 +6,7 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -91,6 +92,11 @@ const PromptPanel: React.FC<PromptPanelProps> = ({
                 {t("prompts.add")}
               </Button>
             </div>
+            <DialogDescription>
+              {t("prompts.panelDescription", {
+                defaultValue: "管理并启用或禁用自定义提示模板。",
+              })}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="flex-shrink-0 px-6 py-4">

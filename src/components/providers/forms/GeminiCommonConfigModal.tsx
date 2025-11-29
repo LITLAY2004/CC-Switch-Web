@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -60,6 +61,11 @@ export const GeminiCommonConfigModal: React.FC<
               defaultValue: "编辑 Gemini 通用配置片段",
             })}
           </DialogTitle>
+          <DialogDescription>
+            {t("geminiConfig.commonConfigDescription", {
+              defaultValue: "编辑共享配置片段，将其应用到启用的 Gemini 供应商。",
+            })}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-auto px-6 py-4 space-y-4">

@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
+  DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -103,6 +104,11 @@ const PromptFormModal: React.FC<PromptFormModalProps> = ({
               ? t("prompts.editTitle", { appName })
               : t("prompts.addTitle", { appName })}
           </DialogTitle>
+          <DialogDescription>
+            {t("prompts.dialogDescription", {
+              defaultValue: "创建或编辑提示模板并保存到当前应用。",
+            })}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 px-6 py-4">

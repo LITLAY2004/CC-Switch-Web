@@ -152,7 +152,22 @@ clone_or_update() {
     git reset --hard origin/main
   else
     log "克隆仓库到 $INSTALL_DIR..."
-    git clone "$REPO_URL" "$INSTALL_DIR"
+    local retry=0
+    local max_retries=3
+    while [[ $retry -lt $max_retries ]]; do
+      if git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"; then
+        break
+      fi
+      retry=$((retry + 1))
+      if [[ $retry -lt $max_retries ]]; then
+        warn "克隆失败，第 $retry 次重试..."
+        rm -rf "$INSTALL_DIR"
+        sleep 2
+      else
+        err "克隆仓库失败，请检查网络连接"
+        exit 1
+      fi
+    done
     cd "$INSTALL_DIR"
   fi
   success "代码就绪"

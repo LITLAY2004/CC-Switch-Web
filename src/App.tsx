@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Plus, Settings, Edit3 } from "lucide-react";
@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { checkAllEnvConflicts, checkEnvConflicts } from "@/lib/api/env";
 import { useProviderActions } from "@/hooks/useProviderActions";
+import { useHealthCheck } from "@/hooks/useHealthCheck";
 import { extractErrorMessage } from "@/utils/errorUtils";
 import { AppSwitcher } from "@/components/AppSwitcher";
 import { ProviderList } from "@/components/providers/ProviderList";
@@ -63,6 +64,12 @@ function App() {
   const providers = useMemo(() => data?.providers ?? {}, [data]);
   const currentProviderId = data?.currentProviderId ?? "";
   const backupProviderId = data?.backupProviderId ?? null;
+
+  const { healthMap, refetch: refetchHealth } = useHealthCheck(
+    activeApp,
+    providers,
+  );
+  const lastFailoverCheckRef = useRef<string | null>(null);
 
   // 🎯 使用 useProviderActions Hook 统一管理所有 Provider 操作
   const {
@@ -200,29 +207,92 @@ function App() {
   };
 
   // 自动故障切换
-  const handleAutoFailover = async (targetId: string) => {
-    const targetProvider = providers[targetId];
-    if (!targetProvider) return;
+  const handleAutoFailover = useCallback(
+    async (targetId?: string | null) => {
+      const targetProviderId = targetId ?? backupProviderId;
+      if (!targetProviderId || !currentProviderId) return;
 
-    try {
-      await switchProvider(targetProvider);
-      await refetch();
-      toast.warning(
-        t("provider.autoFailover", {
-          defaultValue: "已自动切换到备用供应商：{{name}}",
-          name: targetProvider.name,
-        }),
-      );
-    } catch (error) {
-      const detail = extractErrorMessage(error) || t("common.unknown");
-      toast.error(
-        t("provider.autoFailoverFailed", {
-          defaultValue: "自动切换备用失败：{{error}}",
-          error: detail,
-        }),
-      );
+      const targetProvider = providers[targetProviderId];
+      if (!targetProvider) return;
+
+      const ensureHealthMap = async () => {
+        if (
+          healthMap[currentProviderId] !== undefined &&
+          healthMap[targetProviderId] !== undefined
+        ) {
+          return healthMap;
+        }
+        const refreshed = await refetchHealth();
+        return refreshed.data ?? healthMap;
+      };
+
+      const latestHealthMap = await ensureHealthMap();
+      const currentHealth = latestHealthMap?.[currentProviderId];
+      const backupHealth = latestHealthMap?.[targetProviderId];
+
+      if (!currentHealth || currentHealth.isHealthy) return;
+
+      if (!backupHealth || !backupHealth.isHealthy) {
+        toast.warning(
+          t("provider.backupUnavailable", {
+            defaultValue: "备用供应商也不可用，保持当前供应商",
+          }),
+        );
+        return;
+      }
+
+      try {
+        await switchProvider(targetProvider);
+        await refetch();
+        toast.warning(
+          t("provider.autoFailover", {
+            defaultValue: "已自动切换到备用供应商：{{name}}",
+            name: targetProvider.name,
+          }),
+        );
+      } catch (error) {
+        const detail = extractErrorMessage(error) || t("common.unknown");
+        toast.error(
+          t("provider.autoFailoverFailed", {
+            defaultValue: "自动切换备用失败：{{error}}",
+            error: detail,
+          }),
+        );
+      }
+    },
+    [
+      backupProviderId,
+      currentProviderId,
+      healthMap,
+      providers,
+      refetch,
+      refetchHealth,
+      switchProvider,
+      t,
+    ],
+  );
+
+  // 健康状态变更时触发自动故障切换检查
+  useEffect(() => {
+    if (!currentProviderId || !backupProviderId) {
+      lastFailoverCheckRef.current = null;
+      return;
     }
-  };
+
+    const currentHealth = healthMap[currentProviderId];
+    if (!currentHealth || currentHealth.isHealthy) {
+      lastFailoverCheckRef.current = null;
+      return;
+    }
+
+    const backupHealthStatus =
+      (backupProviderId && healthMap[backupProviderId]?.status) || "unknown";
+    const statusKey = `${currentProviderId}:${currentHealth.status}:${backupProviderId}:${backupHealthStatus}`;
+
+    if (lastFailoverCheckRef.current === statusKey) return;
+    lastFailoverCheckRef.current = statusKey;
+    void handleAutoFailover(backupProviderId);
+  }, [backupProviderId, currentProviderId, handleAutoFailover, healthMap]);
 
   // 复制供应商
   const handleDuplicateProvider = async (provider: Provider) => {
@@ -416,6 +486,7 @@ function App() {
             providers={providers}
             currentProviderId={currentProviderId}
             backupProviderId={backupProviderId}
+            healthMap={healthMap}
             appId={activeApp}
             isLoading={isLoading}
             isEditMode={isEditMode}

@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -160,6 +161,11 @@ export function CommonConfigEditor({
                 defaultValue: "编辑通用配置片段",
               })}
             </DialogTitle>
+            <DialogDescription>
+              {t("claudeConfig.commonConfigDescription", {
+                defaultValue: "管理通用配置片段并应用到启用它的供应商。",
+              })}
+            </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-auto px-6 py-4 space-y-4">
             <p className="text-sm text-muted-foreground">

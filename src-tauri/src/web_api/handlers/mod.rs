@@ -12,6 +12,7 @@ use serde::Serialize;
 use crate::{app_config::AppType, error::AppError};
 
 pub mod config;
+pub mod health;
 pub mod mcp;
 pub mod prompts;
 pub mod providers;

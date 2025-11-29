@@ -7,7 +7,7 @@ import {
 } from "@dnd-kit/sortable";
 import type { CSSProperties } from "react";
 import type { Provider } from "@/types";
-import type { AppId } from "@/lib/api";
+import type { AppId, ProviderHealth } from "@/lib/api";
 import { useDragSort } from "@/hooks/useDragSort";
 import { ProviderCard } from "@/components/providers/ProviderCard";
 import { ProviderEmptyState } from "@/components/providers/ProviderEmptyState";
@@ -16,6 +16,7 @@ interface ProviderListProps {
   providers: Record<string, Provider>;
   currentProviderId: string;
   backupProviderId?: string | null;
+  healthMap?: Record<string, ProviderHealth>;
   appId: AppId;
   isEditMode?: boolean;
   onSwitch: (provider: Provider) => void;
@@ -26,13 +27,14 @@ interface ProviderListProps {
   onOpenWebsite: (url: string) => void;
   onCreate?: () => void;
   isLoading?: boolean;
-  onAutoFailover?: (targetId: string) => void;
+  onAutoFailover?: (targetId?: string | null) => void;
 }
 
 export function ProviderList({
   providers,
   currentProviderId,
   backupProviderId,
+  healthMap,
   appId,
   isEditMode = false,
   onSwitch,
@@ -93,6 +95,7 @@ export function ProviderList({
               onConfigureUsage={onConfigureUsage}
               onOpenWebsite={onOpenWebsite}
               onAutoFailover={onAutoFailover}
+              healthStatus={healthMap?.[provider.id]}
             />
           ))}
         </div>
@@ -105,6 +108,7 @@ interface SortableProviderCardProps {
   provider: Provider;
   isCurrent: boolean;
   backupProviderId?: string | null;
+  healthStatus?: ProviderHealth;
   appId: AppId;
   isEditMode: boolean;
   onSwitch: (provider: Provider) => void;
@@ -113,13 +117,14 @@ interface SortableProviderCardProps {
   onDuplicate: (provider: Provider) => void;
   onConfigureUsage?: (provider: Provider) => void;
   onOpenWebsite: (url: string) => void;
-  onAutoFailover?: (targetId: string) => void;
+  onAutoFailover?: (targetId?: string | null) => void;
 }
 
 function SortableProviderCard({
   provider,
   isCurrent,
   backupProviderId,
+  healthStatus,
   appId,
   isEditMode,
   onSwitch,
@@ -161,6 +166,7 @@ function SortableProviderCard({
         }
         onOpenWebsite={onOpenWebsite}
         onAutoFailover={onAutoFailover}
+        healthStatus={healthStatus}
         dragHandleProps={{
           attributes,
           listeners,

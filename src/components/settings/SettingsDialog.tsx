@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
+  DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -164,6 +165,11 @@ export function SettingsDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{t("settings.title")}</DialogTitle>
+          <DialogDescription>
+            {t("settings.description", {
+              defaultValue: "管理语言、主题、目录等应用偏好。",
+            })}
+          </DialogDescription>
         </DialogHeader>
 
         {isBusy ? (
@@ -274,6 +280,11 @@ export function SettingsDialog({
         <DialogContent zIndex="alert" className="max-w-md">
           <DialogHeader>
             <DialogTitle>{t("settings.restartRequired")}</DialogTitle>
+            <DialogDescription>
+              {t("settings.restartRequiredDescription", {
+                defaultValue: "某些更改需要重启应用后才会生效。",
+              })}
+            </DialogDescription>
           </DialogHeader>
           <div className="px-6">
             <p className="text-sm text-muted-foreground">

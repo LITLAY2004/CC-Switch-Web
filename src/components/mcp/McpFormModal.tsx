@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -470,6 +471,11 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
         <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{getFormTitle()}</DialogTitle>
+            <DialogDescription>
+              {t("mcp.form.description", {
+                defaultValue: "配置 MCP 服务器的连接信息和可用能力。",
+              })}
+            </DialogDescription>
           </DialogHeader>
 
           {/* Content - Scrollable */}

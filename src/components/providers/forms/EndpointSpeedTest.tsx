@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -439,6 +440,11 @@ const EndpointSpeedTest: React.FC<EndpointSpeedTestProps> = ({
       >
         <DialogHeader className="px-6 pt-6 pb-0">
           <DialogTitle>{t("endpointTest.title")}</DialogTitle>
+          <DialogDescription>
+            {t("endpointTest.description", {
+              defaultValue: "测试并管理候选端点，帮助选择最快的地址。",
+            })}
+          </DialogDescription>
         </DialogHeader>
 
         {/* Content */}

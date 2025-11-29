@@ -12,7 +12,7 @@ interface UsageFooterProps {
   usageEnabled: boolean; // 是否启用了用量查询
   isCurrent: boolean; // 是否为当前激活的供应商
   backupProviderId?: string | null; // 备用供应商 ID，用于自动故障切换
-  onAutoFailover?: (targetId: string) => void; // 自动故障切换回调
+  onAutoFailover?: (targetId?: string | null) => void; // 自动故障切换回调
   inline?: boolean; // 是否内联显示（在按钮左侧）
   autoTokenApplied?: boolean; // 是否已自动应用前端注入的 API/CSRF Token
 }

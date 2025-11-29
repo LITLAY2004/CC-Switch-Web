@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-11-29
+
+### ✨ New Features
+
+#### Relay-Pulse 健康检查集成
+- **实时健康状态监控**：集成 [Relay-Pulse](https://relaypulse.top) API 提供供应商健康状态监控
+  - 自动获取供应商可用性状态（可用/降级/不可用）
+  - 显示 24 小时平均可用率百分比
+  - 显示 API 响应延迟
+- **智能健康数据聚合**：当同一供应商有多个 channel（如 88code 的 vip3/vip5）时，自动聚合为最差状态
+  - 状态优先级：unavailable > degraded > available > unknown
+  - 可用率取最低值，确保用户了解潜在问题
+- **增强的自动故障转移**：基于健康状态而非用量查询脚本进行自动切换
+  - 当前供应商不健康时自动切换到健康的备用供应商
+  - 切换前检查备用供应商健康状态
+- **后端健康检查代理**：解决 CORS 跨域问题
+  - 新增 `/api/health/status` 代理端点
+  - 后端转发请求到 Relay-Pulse API
+
+### 🔧 Improvements
+
+- **供应商卡片健康指示器**：
+  - 彩色圆点显示健康状态（绿色=可用，黄色=降级，红色=不可用，灰色=未知）
+  - 圆点旁直接显示可用率百分比（如 `● 95.2%`）
+  - 悬停提示显示详细信息（状态、延迟、24小时可用率）
+- **Dialog 可访问性改进**：为所有 DialogContent 组件添加 DialogDescription，消除控制台警告
+
+### 📦 Technical Details
+
+- 新增文件：
+  - `src/lib/api/healthCheck.ts` - 健康检查 API 模块
+  - `src/config/healthCheckMapping.ts` - 供应商名称映射配置
+  - `src/hooks/useHealthCheck.ts` - React 健康检查 Hook
+  - `src-tauri/src/web_api/handlers/health.rs` - 后端健康检查代理
+- 修改文件：
+  - `src/components/providers/ProviderCard.tsx` - 添加健康状态显示
+  - `src/App.tsx` - 集成健康检查和增强自动故障转移
+  - `src-tauri/src/web_api/routes.rs` - 添加健康检查路由
+
 ## [0.2.0] - 2025-11-26
 
 ### 🎉 版本亮点

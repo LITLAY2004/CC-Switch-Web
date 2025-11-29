@@ -11,6 +11,7 @@ import * as pluginEstree from "prettier/plugins/estree";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -459,6 +460,11 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
           <DialogTitle>
             {t("usageScript.title")} - {provider.name}
           </DialogTitle>
+          <DialogDescription>
+            {t("usageScript.description", {
+              defaultValue: "配置查询余额或用量的脚本和凭证。",
+            })}
+          </DialogDescription>
         </DialogHeader>
 
         {/* Content - Scrollable */}

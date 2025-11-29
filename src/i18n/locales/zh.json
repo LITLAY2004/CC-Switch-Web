@@ -738,6 +738,19 @@
       "skillCount": "识别到 {{count}} 个技能"
     }
   },
+  "health": {
+    "available": "正常",
+    "degraded": "降级",
+    "unavailable": "不可用",
+    "unknown": "未知",
+    "latency": "延迟",
+    "availability24h": "24小时可用率",
+    "lastChecked": "最后检查",
+    "notMonitored": "未监控",
+    "autoFailover": "已自动切换到备用供应商 {{name}}",
+    "backupAlsoUnhealthy": "备用供应商 {{name}} 也不可用，未切换",
+    "currentUnhealthy": "当前供应商不可用"
+  },
   "deeplink": {
     "confirmImport": "确认导入供应商配置",
     "confirmImportDescription": "以下配置将导入到 CC Switch",

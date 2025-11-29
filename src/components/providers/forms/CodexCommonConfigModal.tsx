@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -39,6 +40,11 @@ export const CodexCommonConfigModal: React.FC<CodexCommonConfigModalProps> = ({
       >
         <DialogHeader className="px-6 pt-6 pb-0">
           <DialogTitle>{t("codexConfig.editCommonConfigTitle")}</DialogTitle>
+          <DialogDescription>
+            {t("codexConfig.commonConfigDescription", {
+              defaultValue: "管理所有 Codex 供应商共享的配置片段。",
+            })}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-auto px-6 py-4 space-y-4">

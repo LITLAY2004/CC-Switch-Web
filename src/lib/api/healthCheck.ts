@@ -1,0 +1,246 @@
+/**
+ * Relay-Pulse 健康检查 API 模块
+ * 使用 https://relaypulse.top 公开 API 获取供应商健康状态
+ */
+
+import type { AppId } from "./types";
+
+const RELAY_PULSE_API = "/api/health/status";
+const CACHE_TTL = 60 * 1000; // 1 分钟缓存
+
+/** 健康状态枚举 */
+export type HealthStatus = "available" | "degraded" | "unavailable" | "unknown";
+
+/** 单个供应商的健康信息 */
+export interface ProviderHealth {
+  /** 是否健康（available 或 degraded 视为健康） */
+  isHealthy: boolean;
+  /** 健康状态 */
+  status: HealthStatus;
+  /** 响应延迟（毫秒） */
+  latency: number;
+  /** 最后检查时间（Unix 时间戳毫秒） */
+  lastChecked: number;
+  /** 24小时可用率（百分比） */
+  availability?: number;
+}
+
+/** Relay-Pulse API 响应结构 */
+interface RelayPulseResponse {
+  meta: { period: string; count: number };
+  data: RelayPulseMonitor[];
+}
+
+interface RelayPulseMonitor {
+  provider: string;
+  provider_url: string;
+  service: string; // "cc" | "cx"
+  category: string;
+  current_status: {
+    status: number; // 1=正常, 2=降级, 0=不可用
+    latency: number;
+    timestamp: number;
+  };
+  timeline: Array<{
+    availability: number;
+  }>;
+}
+
+// 健康状态缓存
+let healthCache: Map<string, ProviderHealth> = new Map();
+let lastFetchTime = 0;
+
+/**
+ * 将 relay-pulse status 数值转换为状态枚举
+ */
+function statusToHealth(status: number): HealthStatus {
+  switch (status) {
+    case 1:
+      return "available";
+    case 2:
+      return "degraded";
+    case 0:
+      return "unavailable";
+    default:
+      return "unknown";
+  }
+}
+
+/**
+ * 计算 24 小时平均可用率
+ */
+function calculateAvailability(timeline: Array<{ availability: number }>): number | undefined {
+  if (!timeline || timeline.length === 0) return undefined;
+  const validPoints = timeline.filter((t) => t.availability >= 0);
+  if (validPoints.length === 0) return undefined;
+  const sum = validPoints.reduce((acc, t) => acc + t.availability, 0);
+  return sum / validPoints.length;
+}
+
+export { statusToHealth, calculateAvailability, mergeHealth };
+
+function mergeHealth(existing: ProviderHealth | undefined, incoming: ProviderHealth): ProviderHealth {
+  if (!existing) return incoming;
+
+  const statusPriority: Record<HealthStatus, number> = {
+    unavailable: 0,
+    degraded: 1,
+    available: 2,
+    unknown: 3,
+  };
+
+  const worseStatus =
+    statusPriority[incoming.status] < statusPriority[existing.status]
+      ? incoming.status
+      : existing.status;
+
+  return {
+    isHealthy: worseStatus === "available" || worseStatus === "degraded",
+    status: worseStatus,
+    latency: Math.max(existing.latency, incoming.latency),
+    lastChecked: Math.max(existing.lastChecked, incoming.lastChecked),
+    availability: Math.min(existing.availability ?? 100, incoming.availability ?? 100),
+  };
+}
+
+/**
+ * 获取所有供应商的健康状态（带缓存）
+ */
+export async function fetchAllHealthStatus(): Promise<Map<string, ProviderHealth>> {
+  const now = Date.now();
+
+  // 检查缓存是否有效
+  if (now - lastFetchTime < CACHE_TTL && healthCache.size > 0) {
+    return healthCache;
+  }
+
+  try {
+    const response = await fetch(RELAY_PULSE_API, {
+      headers: { Accept: "application/json" },
+    });
+
+    if (!response.ok) {
+      console.warn(`[HealthCheck] API returned ${response.status}`);
+      return healthCache; // 返回旧缓存
+    }
+
+    const data: RelayPulseResponse = await response.json();
+    lastFetchTime = now;
+
+    // 更新缓存
+    const newCache = new Map<string, ProviderHealth>();
+    for (const monitor of data.data) {
+      const key = `${monitor.provider.toLowerCase()}/${monitor.service}`;
+      const status = monitor.current_status;
+      const healthStatus = statusToHealth(status.status);
+
+      const healthData: ProviderHealth = {
+        isHealthy: healthStatus === "available" || healthStatus === "degraded",
+        status: healthStatus,
+        latency: status.latency,
+        lastChecked: status.timestamp * 1000,
+        availability: calculateAvailability(monitor.timeline),
+      };
+
+      newCache.set(key, mergeHealth(newCache.get(key), healthData));
+    }
+
+    healthCache = newCache;
+    return healthCache;
+  } catch (error) {
+    console.warn("[HealthCheck] Failed to fetch health status:", error);
+    return healthCache; // 返回旧缓存
+  }
+}
+
+/**
+ * 检查单个供应商的健康状态
+ * @param relayPulseProvider relay-pulse 中的供应商名称（小写）
+ * @param service 服务类型 "cc" 或 "cx"
+ */
+export async function checkProviderHealth(
+  relayPulseProvider: string,
+  service: "cc" | "cx" = "cc"
+): Promise<ProviderHealth> {
+  const healthMap = await fetchAllHealthStatus();
+  const key = `${relayPulseProvider.toLowerCase()}/${service}`;
+
+  return (
+    healthMap.get(key) || {
+      isHealthy: false,
+      status: "unknown",
+      latency: 0,
+      lastChecked: Date.now(),
+    }
+  );
+}
+
+/**
+ * 批量检查多个供应商的健康状态
+ * @param providers 供应商映射数组 [{ relayPulseProvider, service }]
+ */
+export async function checkProvidersHealth(
+  providers: Array<{ relayPulseProvider: string; service: "cc" | "cx" }>
+): Promise<Map<string, ProviderHealth>> {
+  const healthMap = await fetchAllHealthStatus();
+  const result = new Map<string, ProviderHealth>();
+
+  for (const { relayPulseProvider, service } of providers) {
+    const key = `${relayPulseProvider.toLowerCase()}/${service}`;
+    result.set(
+      key,
+      healthMap.get(key) || {
+        isHealthy: false,
+        status: "unknown",
+        latency: 0,
+        lastChecked: Date.now(),
+      }
+    );
+  }
+
+  return result;
+}
+
+/**
+ * 强制刷新健康状态缓存
+ */
+export async function refreshHealthCache(): Promise<Map<string, ProviderHealth>> {
+  lastFetchTime = 0; // 清除缓存时间
+  return fetchAllHealthStatus();
+}
+
+/**
+ * 获取缓存中的健康状态（不触发网络请求）
+ */
+export function getCachedHealth(
+  relayPulseProvider: string,
+  service: "cc" | "cx" = "cc"
+): ProviderHealth | undefined {
+  const key = `${relayPulseProvider.toLowerCase()}/${service}`;
+  return healthCache.get(key);
+}
+
+/**
+ * 根据 AppId 获取对应的服务类型
+ */
+export function appIdToService(appId: AppId): "cc" | "cx" {
+  switch (appId) {
+    case "claude":
+      return "cc";
+    case "codex":
+      return "cx";
+    case "gemini":
+      return "cc"; // Gemini 暂时映射到 cc（relay-pulse 未覆盖）
+    default:
+      return "cc";
+  }
+}
+
+export const healthCheckApi = {
+  fetchAll: fetchAllHealthStatus,
+  check: checkProviderHealth,
+  checkMultiple: checkProvidersHealth,
+  refresh: refreshHealthCache,
+  getCached: getCachedHealth,
+  appIdToService,
+};

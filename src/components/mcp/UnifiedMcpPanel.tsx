@@ -6,6 +6,7 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -126,6 +127,11 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
                 {t("mcp.unifiedPanel.addServer")}
               </Button>
             </div>
+            <DialogDescription>
+              {t("mcp.unifiedPanel.description", {
+                defaultValue: "集中管理 MCP 服务器并控制其应用范围。",
+              })}
+            </DialogDescription>
           </DialogHeader>
 
           {/* Info Section */}

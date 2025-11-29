@@ -6,7 +6,7 @@ import type {
   DraggableSyntheticListeners,
 } from "@dnd-kit/core";
 import type { Provider } from "@/types";
-import type { AppId } from "@/lib/api";
+import type { AppId, ProviderHealth } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ProviderActions } from "@/components/providers/ProviderActions";
@@ -30,8 +30,9 @@ interface ProviderCardProps {
   onConfigureUsage: (provider: Provider) => void;
   onOpenWebsite: (url: string) => void;
   onDuplicate: (provider: Provider) => void;
-  onAutoFailover?: (targetId: string) => void;
+  onAutoFailover?: (targetId?: string | null) => void;
   dragHandleProps?: DragHandleProps;
+  healthStatus?: ProviderHealth;
 }
 
 const extractApiUrl = (provider: Provider, fallbackText: string) => {
@@ -83,6 +84,7 @@ export function ProviderCard({
   onDuplicate,
   onAutoFailover,
   dragHandleProps,
+  healthStatus,
 }: ProviderCardProps) {
   const { t } = useTranslation();
 
@@ -116,6 +118,48 @@ export function ProviderCard({
     }
     onOpenWebsite(displayUrl);
   };
+
+  const healthIndicator = useMemo(() => {
+    if (!healthStatus) return undefined;
+
+    const statusLabelMap: Record<ProviderHealth["status"], string> = {
+      available: t("provider.health.available", { defaultValue: "可用" }),
+      degraded: t("provider.health.degraded", { defaultValue: "降级" }),
+      unavailable: t("provider.health.unavailable", { defaultValue: "不可用" }),
+      unknown: t("provider.health.unknown", { defaultValue: "未知" }),
+    };
+
+    const indicatorColor =
+      {
+        available: "bg-green-500",
+        degraded: "bg-yellow-500",
+        unavailable: "bg-red-500",
+        unknown: "bg-gray-400",
+      }[healthStatus.status] ?? "bg-gray-400";
+
+    const availability =
+      typeof healthStatus.availability === "number"
+        ? healthStatus.availability
+        : undefined;
+    const availabilityText =
+      typeof availability === "number" ? `${availability.toFixed(1)}%` : undefined;
+    const availabilityDisplay = availabilityText ?? "--%";
+
+    const tooltipParts = [
+      `${t("provider.health.statusLabel", { defaultValue: "状态" })}: ${
+        statusLabelMap[healthStatus.status] ?? statusLabelMap.unknown
+      }`,
+      `${t("provider.health.latency", { defaultValue: "延迟" })}: ${Math.round(healthStatus.latency)}ms`,
+      `${t("provider.health.availability24h", { defaultValue: "24小时可用率" })}: ${
+        availabilityText ??
+        t("provider.health.availabilityUnknown", { defaultValue: "暂无可用率数据" })
+      }`,
+    ];
+
+    const tooltip = tooltipParts.join(" · ");
+
+    return { indicatorColor, tooltip, availabilityText, availabilityDisplay };
+  }, [healthStatus, t]);
 
   return (
     <div
@@ -174,6 +218,19 @@ export function ProviderCard({
               <h3 className="text-base font-semibold leading-none">
                 {provider.name}
               </h3>
+              {healthIndicator && (
+                <span
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+                  title={healthIndicator.tooltip}
+                  aria-label={healthIndicator.tooltip}
+                >
+                  <span
+                    className={cn("h-2 w-2 rounded-full", healthIndicator.indicatorColor)}
+                    aria-hidden="true"
+                  />
+                  <span className="leading-none">{healthIndicator.availabilityDisplay}</span>
+                </span>
+              )}
               {provider.category === "third_party" &&
                 provider.meta?.isPartner && (
                   <span

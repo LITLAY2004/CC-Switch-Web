@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -227,6 +228,11 @@ const McpWizardModal: React.FC<McpWizardModalProps> = ({
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{t("mcp.wizard.title")}</DialogTitle>
+          <DialogDescription>
+            {t("mcp.wizard.description", {
+              defaultValue: "根据向导提示生成 MCP 配置并一键应用。",
+            })}
+          </DialogDescription>
         </DialogHeader>
 
         {/* Content */}

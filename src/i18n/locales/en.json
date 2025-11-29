@@ -738,6 +738,19 @@
       "skillCount": "{{count}} skills detected"
     }
   },
+  "health": {
+    "available": "Available",
+    "degraded": "Degraded",
+    "unavailable": "Unavailable",
+    "unknown": "Unknown",
+    "latency": "Latency",
+    "availability24h": "24h Availability",
+    "lastChecked": "Last checked",
+    "notMonitored": "Not monitored",
+    "autoFailover": "Auto switched to backup provider {{name}}",
+    "backupAlsoUnhealthy": "Backup provider {{name}} is also unavailable, not switching",
+    "currentUnhealthy": "Current provider unavailable"
+  },
   "deeplink": {
     "confirmImport": "Confirm Import Provider",
     "confirmImportDescription": "The following configuration will be imported from deep link into CC Switch",
