@@ -1,5 +1,7 @@
 # CC-Switch-Web — Claude Code / Codex / Gemini CLI 配置管理工具
 
+> **致谢**：本项目基于 [cc-switch](https://github.com/farion1231/cc-switch) 二次开发。衷心感谢原作者 farion1231 创建了如此优秀的开源项目，为本项目奠定了坚实基础。没有上游项目的开拓性工作，就不会有 CC-Switch-Web 的诞生。
+
 [English](README.md) | 中文 | [更新日志](CHANGELOG.md)
 
 CC-Switch-Web 是一个统一的 AI CLI 配置管理工具，支持 **Claude Code**、**Codex** 和 **Gemini CLI**。提供桌面应用和 Web 服务器两种运行模式，用于管理 AI 供应商、MCP 服务器、技能和系统提示词。

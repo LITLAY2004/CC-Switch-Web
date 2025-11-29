@@ -1,5 +1,7 @@
 # CC-Switch-Web — Web/Headless Assistant for Claude Code, Codex & Gemini CLI
 
+> **Acknowledgment**: This project is a fork of [cc-switch](https://github.com/farion1231/cc-switch) by farion1231. We sincerely thank the original author for creating such an excellent foundation. Without the upstream project's pioneering work, CC-Switch-Web would not exist.
+
 English | [中文](README_ZH.md) | [Changelog](CHANGELOG.md)
 
 CC-Switch-Web is a unified configuration management tool for **Claude Code**, **Codex**, and **Gemini CLI**. It provides both a desktop application and a web server mode for managing AI CLI providers, MCP servers, skills, and system prompts.
