@@ -1,6 +1,6 @@
 # CC-Switch-Web — Claude Code / Codex / Gemini CLI 配置管理工具
 
-> **已更新至 v0.4.0** — 新增预编译 server binary、Docker 支持、简化 Web 部署流程。[查看更新日志](CHANGELOG.md)
+> **已更新至 v0.4.1** — 新增预编译 server binary、Docker 支持、简化 Web 部署流程。[查看更新日志](CHANGELOG.md)
 
 [English](README.md) | 中文 | [更新日志](CHANGELOG.md)
 
@@ -84,6 +84,7 @@ CREATE_SERVICE=1 curl -fsSL https://raw.githubusercontent.com/Laliet/CC-Switch-W
 ```bash
 docker run -p 3000:3000 ghcr.io/laliet/cc-switch-web:latest
 ```
+> ⚠️ **注意**：Docker 镜像名必须全小写（`laliet`，不是 `Laliet`）
 - 使用一键部署脚本（自定义端口/版本/数据目录、可后台运行）：
 ```bash
 # 在仓库根目录
@@ -209,7 +210,7 @@ pnpm test
 
 ## 更新日志
 
-参见 [CHANGELOG.md](CHANGELOG.md) — 当前版本：**v0.4.0**
+参见 [CHANGELOG.md](CHANGELOG.md) — 当前版本：**v0.4.1**
 
 ## 致谢
 

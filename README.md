@@ -1,6 +1,6 @@
 # CC-Switch-Web — Web/Headless Assistant for Claude Code, Codex & Gemini CLI
 
-> **Updated to v0.4.0** — Now with prebuilt server binaries, Docker support, and simplified web deployment. [View Changelog](CHANGELOG.md)
+> **Updated to v0.4.1** — Now with prebuilt server binaries, Docker support, and simplified web deployment. [View Changelog](CHANGELOG.md)
 
 English | [中文](README_ZH.md) | [Changelog](CHANGELOG.md)
 
@@ -84,6 +84,7 @@ CREATE_SERVICE=1 curl -fsSL https://raw.githubusercontent.com/Laliet/CC-Switch-W
 ```bash
 docker run -p 3000:3000 ghcr.io/laliet/cc-switch-web:latest
 ```
+> ⚠️ **Note**: Docker image name must be lowercase (`laliet`, not `Laliet`)
 - Use the one-click deploy script (custom port/version/data dir/background):
 ```bash
 # from repo root
@@ -209,7 +210,7 @@ pnpm test
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) — Current version: **v0.4.0**
+See [CHANGELOG.md](CHANGELOG.md) — Current version: **v0.4.1**
 
 ## Credits
 

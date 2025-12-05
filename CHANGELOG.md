@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-12-05
+
+### Fixed
+- 修复 GitHub 用户名变更导致的下载链接失效问题（LITLAY2004 → Laliet）
+- 修复 Docker 镜像名大小写问题（ghcr.io 要求全小写）
+- 修复 Dockerfile 中 Rust 版本过旧导致 Cargo.lock v4 解析失败（1.75 → 1.83）
+
+### Changed
+- 更新所有文档和脚本中的 GitHub 仓库链接
+- Docker 镜像地址更新为 `ghcr.io/laliet/cc-switch-web`（注意小写）
+
 ## [0.4.0] - 2024-11-30
 
 ### Added
