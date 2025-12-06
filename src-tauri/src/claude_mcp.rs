@@ -197,24 +197,83 @@ pub fn delete_mcp_server(id: &str) -> Result<bool, AppError> {
     Ok(true)
 }
 
+#[cfg(windows)]
+fn windows_exec_extensions() -> Vec<String> {
+    let raw = env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into());
+    let exts: Vec<String> = raw
+        .split(';')
+        .filter_map(|ext| {
+            let trimmed = ext.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                let without_dot = trimmed.trim_start_matches('.');
+                if without_dot.is_empty() {
+                    None
+                } else {
+                    Some(without_dot.to_string())
+                }
+            }
+        })
+        .collect();
+
+    if exts.is_empty() {
+        vec!["COM", "EXE", "BAT", "CMD"]
+            .into_iter()
+            .map(String::from)
+            .collect()
+    } else {
+        exts
+    }
+}
+
+#[cfg(windows)]
+fn path_with_extension(path: &Path, ext: &str) -> PathBuf {
+    let ext = ext.trim_start_matches('.');
+    path.with_extension(ext)
+}
+
 pub fn validate_command_in_path(cmd: &str) -> Result<bool, AppError> {
     if cmd.trim().is_empty() {
         return Ok(false);
     }
+
+    #[cfg(windows)]
+    let (exts, cmd_has_ext, has_exe_ext) = {
+        let exts = windows_exec_extensions();
+        let has_ext = Path::new(cmd).extension().is_some();
+        let has_exe_ext = exts.iter().any(|ext| ext.eq_ignore_ascii_case("exe"));
+        (exts, has_ext, has_exe_ext)
+    };
+
     // 如果包含路径分隔符，直接判断是否存在可执行文件
     if cmd.contains('/') || cmd.contains('\\') {
-        return Ok(Path::new(cmd).exists());
+        let path = Path::new(cmd);
+        if path.is_file() {
+            return Ok(true);
+        }
+        #[cfg(windows)]
+        {
+            if !cmd_has_ext {
+                for ext in &exts {
+                    let candidate = path_with_extension(path, ext);
+                    if candidate.is_file() {
+                        return Ok(true);
+                    }
+                }
+                if !has_exe_ext {
+                    let candidate = path_with_extension(path, "exe");
+                    if candidate.is_file() {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+        return Ok(false);
     }
 
     let path_var = env::var_os("PATH").unwrap_or_default();
     let paths = env::split_paths(&path_var);
-
-    #[cfg(windows)]
-    let exts: Vec<String> = env::var("PATHEXT")
-        .unwrap_or(".COM;.EXE;.BAT;.CMD".into())
-        .split(';')
-        .map(|s| s.trim().to_uppercase())
-        .collect();
 
     for p in paths {
         let candidate = p.join(cmd);
@@ -223,10 +282,18 @@ pub fn validate_command_in_path(cmd: &str) -> Result<bool, AppError> {
         }
         #[cfg(windows)]
         {
-            for ext in &exts {
-                let cand = p.join(format!("{}{}", cmd, ext));
-                if cand.is_file() {
-                    return Ok(true);
+            if !cmd_has_ext {
+                for ext in &exts {
+                    let cand = path_with_extension(&candidate, ext);
+                    if cand.is_file() {
+                        return Ok(true);
+                    }
+                }
+                if !has_exe_ext {
+                    let exe_candidate = path_with_extension(&candidate, "exe");
+                    if exe_candidate.is_file() {
+                        return Ok(true);
+                    }
                 }
             }
         }

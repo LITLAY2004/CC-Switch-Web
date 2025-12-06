@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🔒 Security / 安全修复
+- Fix Windows `atomic_write` command injection vulnerability (config.rs) / 修复 Windows atomic_write 命令注入漏洞 (config.rs)
+- Fix ZIP path traversal vulnerability (skill.rs) / 修复 ZIP 路径遍历攻击漏洞 (skill.rs)
+
+### 🐛 Bug Fixes / Bug 修复
+- Fix Web UI not showing installed MCPs by auto-importing external configs (services/mcp.rs) / 修复 Web 版本无法显示已安装 MCP 的问题 - 添加自动导入外部配置功能 (services/mcp.rs)
+- Fix `import_from_codex` exiting early on unknown types (mcp.rs) / 修复 import_from_codex 遇到未知类型时提前退出的问题 (mcp.rs)
+- Fix MCP management panel showing empty lists on query failures (UnifiedMcpPanel.tsx) / 修复 MCP 管理面板查询失败时显示空列表的问题 (UnifiedMcpPanel.tsx)
+
+### 🖥️ Cross-Platform / 跨平台兼容
+- Handle PATHEXT/.exe when validating Windows commands (claude_mcp.rs) / 修复 Windows 命令验证缺少 PATHEXT/.exe 处理的问题 (claude_mcp.rs)
+- Normalize `skills_path` separators on Windows (skill.rs) / 修复 skills_path 路径分隔符在 Windows 上的问题 (skill.rs)
+
+### ✨ Enhancements / 功能增强
+- Add debounce and loading states to the MCP management panel to prevent repeated clicks / MCP 管理面板添加操作防抖和 loading 状态，防止重复点击
+- Add `useSkills` React Query hooks / 新增 useSkills React Query hooks
+
+### 🧪 Tests / 测试
+- Add MCP validation and TOML conversion unit tests (mcp.rs) / 新增 MCP 验证和 TOML 转换单元测试 (mcp.rs)
+- Add skills path parsing and metadata parsing unit tests (skill.rs) / 新增 Skills 路径解析和元数据解析单元测试 (skill.rs)
+- Add `useSkills` hooks frontend tests / 新增 useSkills hooks 前端测试
+- Update test docs with a full bilingual guide (tests/README.md) / 更新测试文档 (tests/README.md) - 完整的中英双语测试指南
+
+### 📦 CI/CD
+- Add GitHub Actions frontend test job / GitHub Actions CI 新增前端测试 job
+
 ## [0.4.1] - 2025-12-05
 
 ### Fixed

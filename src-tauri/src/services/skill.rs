@@ -4,7 +4,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use tokio::time::timeout;
 
 use crate::config::get_home_dir;
@@ -147,6 +147,11 @@ impl SkillService {
 
 // 核心方法实现
 impl SkillService {
+    fn normalize_skills_path(skills_path: &str) -> String {
+        let trimmed = skills_path.trim_matches(|c| c == '/' || c == '\\');
+        trimmed.replace('\\', "/")
+    }
+
     /// 列出所有技能
     pub async fn list_skills(&self, repos: Vec<SkillRepo>) -> Result<Vec<Skill>> {
         let mut skills = Vec::new();
@@ -198,7 +203,8 @@ impl SkillService {
         // 确定要扫描的目录路径
         let scan_dir = if let Some(ref skills_path) = repo.skills_path {
             // 如果指定了 skillsPath，则扫描该子目录
-            let subdir = temp_dir.join(skills_path.trim_matches('/'));
+            let normalized_skills_path = Self::normalize_skills_path(skills_path);
+            let subdir = temp_dir.join(normalized_skills_path);
             if !subdir.exists() {
                 log::warn!(
                     "仓库 {}/{} 中指定的技能路径 '{}' 不存在",
@@ -236,7 +242,8 @@ impl SkillService {
 
                     // 构建 README URL（考虑 skillsPath）
                     let readme_path = if let Some(ref skills_path) = repo.skills_path {
-                        format!("{}/{}", skills_path.trim_matches('/'), directory)
+                        let normalized_skills_path = Self::normalize_skills_path(skills_path);
+                        format!("{}/{}", normalized_skills_path, directory)
                     } else {
                         directory.clone()
                     };
@@ -441,7 +448,23 @@ impl SkillService {
                 continue;
             }
 
-            let outpath = dest.join(relative_path);
+            let relative_path_obj = Path::new(relative_path);
+            let has_traversal = relative_path_obj
+                .components()
+                .any(|c| matches!(c, Component::ParentDir | Component::RootDir | Component::Prefix(_)))
+                || relative_path
+                    .split(['/', '\\'])
+                    .any(|segment| segment == "..");
+
+            if relative_path_obj.is_absolute() || has_traversal {
+                return Err(anyhow!(format_skill_error(
+                    "INVALID_ARCHIVE_PATH",
+                    &[("path", file_path)],
+                    Some("checkRepoUrl"),
+                )));
+            }
+
+            let outpath = dest.join(relative_path_obj);
 
             if file.is_dir() {
                 fs::create_dir_all(&outpath)?;
@@ -487,9 +510,8 @@ impl SkillService {
         // 根据 skills_path 确定源目录路径
         let source = if let Some(ref skills_path) = repo.skills_path {
             // 如果指定了 skills_path，源路径为: temp_dir/skills_path/directory
-            temp_dir
-                .join(skills_path.trim_matches('/'))
-                .join(&directory)
+            let normalized_skills_path = Self::normalize_skills_path(skills_path);
+            temp_dir.join(normalized_skills_path).join(&directory)
         } else {
             // 否则源路径为: temp_dir/directory
             temp_dir.join(&directory)
@@ -576,5 +598,77 @@ impl SkillService {
             .retain(|r| !(r.owner == owner && r.name == name));
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn build_service_with_install_dir(dir: PathBuf) -> SkillService {
+        SkillService {
+            http_client: Client::builder()
+                .user_agent("cc-switch-test")
+                .build()
+                .expect("client build should succeed"),
+            install_dir: dir,
+        }
+    }
+
+    fn make_skill(key: &str, directory: &str) -> Skill {
+        Skill {
+            key: key.to_string(),
+            name: directory.to_string(),
+            description: String::new(),
+            directory: directory.to_string(),
+            readme_url: None,
+            installed: false,
+            repo_owner: None,
+            repo_name: None,
+            repo_branch: None,
+            skills_path: None,
+        }
+    }
+
+    #[test]
+    fn test_normalize_skills_path() {
+        let normalized = SkillService::normalize_skills_path("/skills\\nested//");
+        assert_eq!(normalized, "skills/nested");
+    }
+
+    #[test]
+    fn test_parse_skill_metadata() {
+        let temp_dir = tempfile::tempdir().expect("temp dir should exist");
+        let skill_md = temp_dir.path().join("SKILL.md");
+        let content = r#"---
+name: Demo Skill
+description: Useful skill
+---
+# body
+"#;
+        fs::write(&skill_md, content).expect("should write skill metadata");
+        let service = build_service_with_install_dir(temp_dir.path().to_path_buf());
+
+        let metadata = service
+            .parse_skill_metadata(&skill_md)
+            .expect("metadata should parse");
+
+        assert_eq!(metadata.name.as_deref(), Some("Demo Skill"));
+        assert_eq!(metadata.description.as_deref(), Some("Useful skill"));
+    }
+
+    #[test]
+    fn test_deduplicate_skills() {
+        let mut skills = vec![
+            make_skill("owner/name:skill", "SkillOne"),
+            make_skill("Owner/Name:Skill", "SkillTwo"),
+            make_skill("local:unique", "Unique"),
+        ];
+
+        SkillService::deduplicate_skills(&mut skills);
+
+        assert_eq!(skills.len(), 2);
+        assert!(skills.iter().any(|s| s.key == "owner/name:skill"));
+        assert!(skills.iter().any(|s| s.key == "local:unique"));
     }
 }

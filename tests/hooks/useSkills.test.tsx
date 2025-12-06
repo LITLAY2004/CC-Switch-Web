@@ -1,0 +1,131 @@
+import type { ReactNode } from "react";
+import { renderHook, act, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
+import { http, HttpResponse } from "msw";
+import type { Skill } from "@/lib/api/skills";
+import {
+  useAllSkills,
+  useInstallSkill,
+  useSkillRepos,
+  useUninstallSkill,
+} from "@/hooks/useSkills";
+import { server } from "../msw/server";
+import { getSkillsState, getSkillReposState } from "../msw/state";
+
+interface WrapperProps {
+  children: ReactNode;
+}
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+    },
+  });
+
+  const wrapper = ({ children }: WrapperProps) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+
+  return { wrapper, queryClient };
+}
+
+const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+describe("useSkills hooks", () => {
+  beforeEach(() => {
+    consoleErrorSpy.mockClear();
+  });
+
+  afterAll(() => {
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("fetches skills list", async () => {
+    const expected = getSkillsState();
+    const { wrapper } = createWrapper();
+
+    const { result } = renderHook(() => useAllSkills(), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(expected);
+  });
+
+  it("fetches skill repositories", async () => {
+    const expected = getSkillReposState();
+    const { wrapper } = createWrapper();
+
+    const { result } = renderHook(() => useSkillRepos(), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(expected);
+  });
+
+  it("installs a skill and invalidates the skills query", async () => {
+    const { wrapper, queryClient } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const directory = "/skills/notes";
+
+    const skillsQuery = renderHook(() => useAllSkills(), { wrapper });
+    await waitFor(() => expect(skillsQuery.result.current.isSuccess).toBe(true));
+
+    const { result } = renderHook(() => useInstallSkill(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync(directory);
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["skills", "all"] });
+
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: ["skills", "all"] });
+    });
+
+    const updated = queryClient.getQueryData<Skill[]>(["skills", "all"]);
+    expect(updated?.find((skill) => skill.directory === directory)?.installed).toBe(true);
+  });
+
+  it("uninstalls a skill and invalidates the skills query", async () => {
+    const { wrapper, queryClient } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const directory = "/skills/terminal";
+
+    const skillsQuery = renderHook(() => useAllSkills(), { wrapper });
+    await waitFor(() => expect(skillsQuery.result.current.isSuccess).toBe(true));
+
+    const { result } = renderHook(() => useUninstallSkill(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync(directory);
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["skills", "all"] });
+
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: ["skills", "all"] });
+    });
+
+    const updated = queryClient.getQueryData<Skill[]>(["skills", "all"]);
+    expect(updated?.find((skill) => skill.directory === directory)?.installed).toBe(false);
+  });
+
+  it("surfaces errors from install mutation", async () => {
+    server.use(
+      http.post("http://tauri.local/install_skill", () =>
+        HttpResponse.json({ message: "install failed" }, { status: 500 }),
+      ),
+    );
+    const { wrapper, queryClient } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    const { result } = renderHook(() => useInstallSkill(), { wrapper });
+
+    await expect(
+      act(async () => {
+        await result.current.mutateAsync("/skills/unknown");
+      }),
+    ).rejects.toThrow(/install failed/);
+    expect(invalidateSpy).not.toHaveBeenCalled();
+  });
+});

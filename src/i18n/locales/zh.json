@@ -457,6 +457,7 @@
     "userLevelPath": "用户级 MCP 配置路径",
     "serverList": "服务器列表",
     "loading": "加载中...",
+    "loadFailed": "加载 MCP 服务器失败",
     "empty": "暂无 MCP 服务器",
     "emptyDescription": "点击右上角按钮添加第一个 MCP 服务器",
     "add": "添加 MCP",

@@ -1,5 +1,6 @@
 import { http, HttpResponse } from "msw";
 import type { AppId } from "@/lib/api/types";
+import type { SkillRepo } from "@/lib/api/skills";
 import type { McpServer, Provider, Settings } from "@/types";
 import {
   addProvider,
@@ -21,6 +22,12 @@ import {
   setMcpServerEnabled,
   upsertMcpServer,
   deleteMcpServer,
+  getSkillsState,
+  installSkillState,
+  uninstallSkillState,
+  getSkillReposState,
+  addSkillRepoState,
+  removeSkillRepoState,
 } from "./state";
 
 const TAURI_ENDPOINT = "http://tauri.local";
@@ -112,6 +119,35 @@ export const handlers = [
   }),
 
   http.post(`${TAURI_ENDPOINT}/open_external`, () => success(true)),
+
+  // Skill APIs
+  http.post(`${TAURI_ENDPOINT}/get_skills`, () => success(getSkillsState())),
+
+  http.post(`${TAURI_ENDPOINT}/install_skill`, async ({ request }) => {
+    const { directory } = await withJson<{ directory: string }>(request);
+    installSkillState(directory);
+    return success(true);
+  }),
+
+  http.post(`${TAURI_ENDPOINT}/uninstall_skill`, async ({ request }) => {
+    const { directory } = await withJson<{ directory: string }>(request);
+    uninstallSkillState(directory);
+    return success(true);
+  }),
+
+  http.post(`${TAURI_ENDPOINT}/get_skill_repos`, () => success(getSkillReposState())),
+
+  http.post(`${TAURI_ENDPOINT}/add_skill_repo`, async ({ request }) => {
+    const { repo } = await withJson<{ repo: SkillRepo }>(request);
+    addSkillRepoState(repo);
+    return success(true);
+  }),
+
+  http.post(`${TAURI_ENDPOINT}/remove_skill_repo`, async ({ request }) => {
+    const { owner, name } = await withJson<{ owner: string; name: string }>(request);
+    removeSkillRepoState(owner, name);
+    return success(true);
+  }),
 
   // MCP APIs
   http.post(`${TAURI_ENDPOINT}/get_mcp_config`, async ({ request }) => {

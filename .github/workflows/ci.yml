@@ -82,3 +82,61 @@ jobs:
 
       - name: Format check
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+
+  frontend-test:
+    name: Frontend Test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10.10.0
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm vitest run
+
+  integration-test:
+    name: Integration Test (Linux)
+    needs: [check, frontend-test]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libssl-dev \
+            libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev \
+            libwebkit2gtk-4.1-dev || sudo apt-get install -y libwebkit2gtk-4.0-dev
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Create dist-web placeholder for RustEmbed
+        run: |
+          mkdir -p dist-web
+          echo '<!DOCTYPE html><html><head><title>placeholder</title></head><body></body></html>' > dist-web/index.html
+
+      - name: Integration tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --tests

@@ -191,34 +191,30 @@ pub fn atomic_write(path: &Path, data: &[u8]) -> Result<(), AppError> {
 
     #[cfg(windows)]
     {
-        // Windows 原子替换：使用重命名重试机制
-        // 首先尝试直接重命名（如果目标不存在会成功）
-        match fs::rename(&tmp, path) {
-            Ok(_) => {}
-            Err(_) => {
-                // 目标存在时，使用 cmd /c move /y 实现原子替换
-                // move /y 在 Windows 上会原子地替换目标文件
-                use std::process::Command;
-                let tmp_str = tmp.to_string_lossy();
-                let path_str = path.to_string_lossy();
-
-                let output = Command::new("cmd")
-                    .args(["/c", "move", "/y", &tmp_str, &path_str])
-                    .output()
-                    .map_err(|e| AppError::IoContext {
-                        context: format!("执行 move 命令失败: {}", e),
-                        source: e,
-                    })?;
-
-                if !output.status.success() {
-                    // move 失败，回退到 remove + rename
-                    let _ = fs::remove_file(path);
-                    fs::rename(&tmp, path).map_err(|e| AppError::IoContext {
-                        context: format!("原子替换失败: {} -> {}", tmp.display(), path.display()),
-                        source: e,
-                    })?;
+        // Windows 原子替换：优先使用 std::fs::rename；目标存在时删除后重试
+        if let Err(first_err) = fs::rename(&tmp, path) {
+            if let Err(remove_err) = fs::remove_file(path) {
+                if remove_err.kind() != std::io::ErrorKind::NotFound {
+                    return Err(AppError::IoContext {
+                        context: format!(
+                            "原子替换失败，无法删除旧文件 {}: {}",
+                            path.display(),
+                            remove_err
+                        ),
+                        source: remove_err,
+                    });
                 }
             }
+
+            fs::rename(&tmp, path).map_err(|e| AppError::IoContext {
+                context: format!(
+                    "原子替换失败: {} -> {}（初始错误: {}）",
+                    tmp.display(),
+                    path.display(),
+                    first_err
+                ),
+                source: e,
+            })?;
         }
     }
 
@@ -230,41 +226,6 @@ pub fn atomic_write(path: &Path, data: &[u8]) -> Result<(), AppError> {
         })?;
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn derive_mcp_path_from_override_preserves_folder_name() {
-        let override_dir = PathBuf::from("/tmp/profile/.claude");
-        let derived = derive_mcp_path_from_override(&override_dir)
-            .expect("should derive path for nested dir");
-        assert_eq!(derived, PathBuf::from("/tmp/profile/.claude.json"));
-    }
-
-    #[test]
-    fn derive_mcp_path_from_override_handles_non_hidden_folder() {
-        let override_dir = PathBuf::from("/data/claude-config");
-        let derived = derive_mcp_path_from_override(&override_dir)
-            .expect("should derive path for standard dir");
-        assert_eq!(derived, PathBuf::from("/data/claude-config.json"));
-    }
-
-    #[test]
-    fn derive_mcp_path_from_override_supports_relative_rootless_dir() {
-        let override_dir = PathBuf::from("claude");
-        let derived = derive_mcp_path_from_override(&override_dir)
-            .expect("should derive path for single segment");
-        assert_eq!(derived, PathBuf::from("claude.json"));
-    }
-
-    #[test]
-    fn derive_mcp_path_from_root_like_dir_returns_none() {
-        let override_dir = PathBuf::from("/");
-        assert!(derive_mcp_path_from_override(&override_dir).is_none());
-    }
 }
 
 /// 复制文件
@@ -297,5 +258,92 @@ pub fn get_claude_config_status() -> ConfigStatus {
     ConfigStatus {
         exists: path.exists(),
         path: path.to_string_lossy().to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use tempfile::tempdir;
+
+    struct EnvGuard {
+        key: &'static str,
+        original: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            let original = env::var(key).ok();
+            env::set_var(key, value);
+            Self { key, original }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            if let Some(ref original) = self.original {
+                env::set_var(self.key, original);
+            } else {
+                env::remove_var(self.key);
+            }
+        }
+    }
+
+    #[test]
+    fn test_get_home_dir() {
+        let temp_dir = tempdir().expect("temp dir should be created");
+        let home_str = temp_dir.path().to_string_lossy().to_string();
+        let _home_guard = EnvGuard::set("HOME", &home_str);
+        #[cfg(windows)]
+        let _user_guard = EnvGuard::set("USERPROFILE", &home_str);
+
+        let home = get_home_dir().expect("home dir should resolve");
+        assert_eq!(home, temp_dir.path());
+    }
+
+    #[test]
+    fn test_get_app_config_path() {
+        let temp_dir = tempdir().expect("temp dir should be created");
+        let home_str = temp_dir.path().to_string_lossy().to_string();
+        let _home_guard = EnvGuard::set("HOME", &home_str);
+        #[cfg(windows)]
+        let _user_guard = EnvGuard::set("USERPROFILE", &home_str);
+
+        let app_config_path = get_app_config_path();
+        assert_eq!(
+            app_config_path,
+            temp_dir.path().join(".cc-switch").join("config.json")
+        );
+    }
+
+    #[test]
+    fn derive_mcp_path_from_override_preserves_folder_name() {
+        let override_dir = PathBuf::from("/tmp/profile/.claude");
+        let derived = derive_mcp_path_from_override(&override_dir)
+            .expect("should derive path for nested dir");
+        assert_eq!(derived, PathBuf::from("/tmp/profile/.claude.json"));
+    }
+
+    #[test]
+    fn derive_mcp_path_from_override_handles_non_hidden_folder() {
+        let override_dir = PathBuf::from("/data/claude-config");
+        let derived = derive_mcp_path_from_override(&override_dir)
+            .expect("should derive path for standard dir");
+        assert_eq!(derived, PathBuf::from("/data/claude-config.json"));
+    }
+
+    #[test]
+    fn derive_mcp_path_from_override_supports_relative_rootless_dir() {
+        let override_dir = PathBuf::from("claude");
+        let derived = derive_mcp_path_from_override(&override_dir)
+            .expect("should derive path for single segment");
+        assert_eq!(derived, PathBuf::from("claude.json"));
+    }
+
+    #[test]
+    fn derive_mcp_path_from_root_like_dir_returns_none() {
+        let override_dir = PathBuf::from("/");
+        assert!(derive_mcp_path_from_override(&override_dir).is_none());
     }
 }

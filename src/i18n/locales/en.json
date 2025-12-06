@@ -457,6 +457,7 @@
     "userLevelPath": "User-level MCP path",
     "serverList": "Servers",
     "loading": "Loading...",
+    "loadFailed": "Failed to load MCP servers",
     "empty": "No MCP servers",
     "emptyDescription": "Click the button in the top right to add your first MCP server",
     "add": "Add MCP",

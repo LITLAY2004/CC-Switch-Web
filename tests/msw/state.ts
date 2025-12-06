@@ -1,10 +1,13 @@
 import type { AppId } from "@/lib/api/types";
 import type { McpServer, Provider, Settings } from "@/types";
+import type { Skill, SkillRepo } from "@/lib/api/skills";
 
 type ProvidersByApp = Record<AppId, Record<string, Provider>>;
 type CurrentProviderState = Record<AppId, string>;
 type BackupProviderState = Record<AppId, string | null>;
 type McpConfigState = Record<AppId, Record<string, McpServer>>;
+type SkillsState = Skill[];
+type SkillReposState = SkillRepo[];
 
 const createDefaultProviders = (): ProvidersByApp => ({
   claude: {
@@ -72,9 +75,51 @@ const createDefaultBackup = (): BackupProviderState => ({
   gemini: null,
 });
 
+const createDefaultSkills = (): SkillsState => [
+  {
+    key: "terminal",
+    name: "Terminal Helper",
+    description: "Execute shell commands",
+    directory: "/skills/terminal",
+    installed: true,
+    repoOwner: "mock",
+    repoName: "builtin-skills",
+    repoBranch: "main",
+  },
+  {
+    key: "notes",
+    name: "Notes",
+    description: "Take notes quickly",
+    directory: "/skills/notes",
+    installed: false,
+    repoOwner: "community",
+    repoName: "ai-skills",
+    repoBranch: "main",
+    skillsPath: "skills",
+  },
+];
+
+const createDefaultSkillRepos = (): SkillReposState => [
+  {
+    owner: "mock",
+    name: "builtin-skills",
+    branch: "main",
+    enabled: true,
+  },
+  {
+    owner: "community",
+    name: "ai-skills",
+    branch: "main",
+    enabled: false,
+    skillsPath: "skills",
+  },
+];
+
 let providers = createDefaultProviders();
 let current = createDefaultCurrent();
 let backup = createDefaultBackup();
+let skills = createDefaultSkills();
+let skillRepos = createDefaultSkillRepos();
 let settingsState: Settings = {
   showInTray: true,
   minimizeToTrayOnClose: true,
@@ -115,10 +160,18 @@ let mcpConfigs: McpConfigState = {
 const cloneProviders = (value: ProvidersByApp) =>
   JSON.parse(JSON.stringify(value)) as ProvidersByApp;
 
+const cloneSkills = (value: SkillsState) =>
+  JSON.parse(JSON.stringify(value)) as SkillsState;
+
+const cloneSkillRepos = (value: SkillReposState) =>
+  JSON.parse(JSON.stringify(value)) as SkillReposState;
+
 export const resetProviderState = () => {
   providers = createDefaultProviders();
   current = createDefaultCurrent();
   backup = createDefaultBackup();
+  skills = createDefaultSkills();
+  skillRepos = createDefaultSkillRepos();
   settingsState = {
     showInTray: true,
     minimizeToTrayOnClose: true,
@@ -217,6 +270,49 @@ export const updateSortOrder = (
 
 export const listProviders = (appType: AppId) =>
   JSON.parse(JSON.stringify(providers[appType] ?? {})) as Record<string, Provider>;
+
+export const getSkillsState = () => cloneSkills(skills);
+
+export const installSkillState = (directory: string) => {
+  const existing = skills.find((item) => item.directory === directory);
+  if (existing) {
+    existing.installed = true;
+    return;
+  }
+  const key = directory.split("/").filter(Boolean).pop() ?? directory;
+  skills.push({
+    key,
+    name: key,
+    description: "",
+    directory,
+    installed: true,
+  });
+};
+
+export const uninstallSkillState = (directory: string) => {
+  const existing = skills.find((item) => item.directory === directory);
+  if (existing) {
+    existing.installed = false;
+  }
+};
+
+export const getSkillReposState = () => cloneSkillRepos(skillRepos);
+
+export const addSkillRepoState = (repo: SkillRepo) => {
+  const index = skillRepos.findIndex(
+    (item) => item.owner === repo.owner && item.name === repo.name,
+  );
+  const nextRepo = JSON.parse(JSON.stringify(repo)) as SkillRepo;
+  if (index >= 0) {
+    skillRepos[index] = { ...skillRepos[index], ...nextRepo };
+    return;
+  }
+  skillRepos.push(nextRepo);
+};
+
+export const removeSkillRepoState = (owner: string, name: string) => {
+  skillRepos = skillRepos.filter((repo) => !(repo.owner === owner && repo.name === name));
+};
 
 export const getSettings = () => JSON.parse(JSON.stringify(settingsState)) as Settings;
 

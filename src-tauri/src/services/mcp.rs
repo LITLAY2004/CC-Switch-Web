@@ -11,55 +11,73 @@ pub struct McpService;
 impl McpService {
     /// 获取所有 MCP 服务器（统一结构）
     pub fn get_all_servers(state: &AppState) -> Result<HashMap<String, McpServer>, AppError> {
-        let cfg = state.config.read()?;
+        let (servers, need_save) = {
+            let mut cfg = state.config.write()?;
 
-        // 新结构：空表示尚未配置任何 MCP 服务器，返回空 Map 而不是报错，避免初始加载失败。
-        let mut servers = cfg.mcp.servers.clone().unwrap_or_default();
-
-        // 兼容旧结构：如果旧的分应用配置仍有启用项，则合并到统一结构并标记对应 app。
-        let mut merge_legacy = |legacy: &crate::app_config::McpConfig, app: &AppType| {
-            for (id, entry) in legacy.servers.iter() {
-                let enabled = entry
-                    .get("enabled")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-                if !enabled {
-                    continue;
-                }
-
-                // 旧结构可能以 { enabled, server: {...} } 存储，也可能直接是 server 规范
-                let spec = entry
-                    .get("server")
-                    .cloned()
-                    .unwrap_or_else(|| entry.clone());
-
-                if let Some(existing) = servers.get_mut(id) {
-                    existing.apps.set_enabled_for(app, true);
-                } else {
-                    servers.insert(
-                        id.clone(),
-                        McpServer {
-                            id: id.clone(),
-                            name: id.clone(),
-                            server: spec.clone(),
-                            apps: {
-                                let mut apps = McpApps::default();
-                                apps.set_enabled_for(app, true);
-                                apps
-                            },
-                            description: None,
-                            homepage: None,
-                            docs: None,
-                            tags: Vec::new(),
-                        },
-                    );
-                }
+            // 从各客户端配置导入 MCP，确保统一结构完整
+            let mut need_save = cfg.mcp.servers.is_none();
+            let imported_from_claude = mcp::import_from_claude(&mut cfg)?;
+            let imported_from_codex = mcp::import_from_codex(&mut cfg)?;
+            let imported_from_gemini = mcp::import_from_gemini(&mut cfg)?;
+            if imported_from_claude > 0 || imported_from_codex > 0 || imported_from_gemini > 0 {
+                need_save = true;
             }
+
+            // 新结构：空表示尚未配置任何 MCP 服务器，返回空 Map 而不是报错，避免初始加载失败。
+            let mut servers = cfg.mcp.servers.clone().unwrap_or_default();
+
+            // 兼容旧结构：如果旧的分应用配置仍有启用项，则合并到统一结构并标记对应 app。
+            let mut merge_legacy = |legacy: &crate::app_config::McpConfig, app: &AppType| {
+                for (id, entry) in legacy.servers.iter() {
+                    let enabled = entry
+                        .get("enabled")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    if !enabled {
+                        continue;
+                    }
+
+                    // 旧结构可能以 { enabled, server: {...} } 存储，也可能直接是 server 规范
+                    let spec = entry
+                        .get("server")
+                        .cloned()
+                        .unwrap_or_else(|| entry.clone());
+
+                    if let Some(existing) = servers.get_mut(id) {
+                        existing.apps.set_enabled_for(app, true);
+                    } else {
+                        servers.insert(
+                            id.clone(),
+                            McpServer {
+                                id: id.clone(),
+                                name: id.clone(),
+                                server: spec.clone(),
+                                apps: {
+                                    let mut apps = McpApps::default();
+                                    apps.set_enabled_for(app, true);
+                                    apps
+                                },
+                                description: None,
+                                homepage: None,
+                                docs: None,
+                                tags: Vec::new(),
+                            },
+                        );
+                    }
+                }
+            };
+
+            merge_legacy(&cfg.mcp.claude, &AppType::Claude);
+            merge_legacy(&cfg.mcp.codex, &AppType::Codex);
+            merge_legacy(&cfg.mcp.gemini, &AppType::Gemini);
+
+            (servers, need_save)
         };
 
-        merge_legacy(&cfg.mcp.claude, &AppType::Claude);
-        merge_legacy(&cfg.mcp.codex, &AppType::Codex);
-        merge_legacy(&cfg.mcp.gemini, &AppType::Gemini);
+        if need_save {
+            // 释放写锁后再保存，避免与 save() 内部的读锁互斥导致死锁
+            state.save()?;
+        }
 
         Ok(servers)
     }

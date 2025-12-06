@@ -505,7 +505,7 @@ pub fn import_from_codex(config: &mut MultiAppConfig) -> Result<usize, AppError>
                 }
                 _ => {
                     log::warn!("跳过未知类型 '{typ}' 的 Codex MCP 项 '{id}'");
-                    return changed;
+                    continue;
                 }
             }
 
@@ -1133,4 +1133,115 @@ pub fn remove_server_from_gemini(id: &str) -> Result<(), AppError> {
 
     // 写回
     crate::gemini_mcp::set_mcp_servers_map(&current)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_validate_server_spec_stdio() {
+        let spec = json!({
+            "type": "stdio",
+            "command": "node",
+            "args": ["index.js"]
+        });
+
+        assert!(validate_server_spec(&spec).is_ok());
+    }
+
+    #[test]
+    fn test_validate_server_spec_http() {
+        let spec = json!({
+            "type": "http",
+            "url": "https://example.com"
+        });
+
+        assert!(validate_server_spec(&spec).is_ok());
+    }
+
+    #[test]
+    fn test_validate_server_spec_sse() {
+        let spec = json!({
+            "type": "sse",
+            "url": "https://example.com/sse"
+        });
+
+        assert!(validate_server_spec(&spec).is_ok());
+    }
+
+    #[test]
+    fn test_validate_server_spec_missing_command() {
+        let spec = json!({
+            "type": "stdio"
+        });
+
+        let err = validate_server_spec(&spec).unwrap_err();
+        match err {
+            AppError::McpValidation(msg) => assert!(msg.contains("缺少 command")),
+            other => panic!("unexpected error variant: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_json_server_to_toml_table() {
+        let spec = json!({
+            "type": "stdio",
+            "command": "bash",
+            "args": ["-lc", "echo hi"],
+            "env": {"KEY": "VALUE"},
+            "cwd": "/tmp/project",
+            "timeout": 10
+        });
+
+        let table = json_server_to_toml_table(&spec).expect("conversion should succeed");
+        assert_eq!(
+            table
+                .get("type")
+                .and_then(|item| item.as_value())
+                .and_then(|v| v.as_str()),
+            Some("stdio")
+        );
+        assert_eq!(
+            table
+                .get("command")
+                .and_then(|item| item.as_value())
+                .and_then(|v| v.as_str()),
+            Some("bash")
+        );
+        let args = table
+            .get("args")
+            .and_then(|item| item.as_value())
+            .and_then(|v| v.as_array())
+            .expect("args array missing");
+        let args_vec: Vec<_> = args.iter().filter_map(|v| v.as_str()).collect();
+        assert_eq!(args_vec, vec!["-lc", "echo hi"]);
+
+        let env_item = table
+            .get("env")
+            .unwrap_or_else(|| panic!("env table missing: {}", table.to_string()));
+        let env_tbl = env_item
+            .as_table()
+            .expect("env should be represented as table");
+        let env_val = env_tbl
+            .get("KEY")
+            .and_then(|item| item.as_value())
+            .and_then(|v| v.as_str());
+        assert_eq!(env_val, Some("VALUE"));
+        assert_eq!(
+            table
+                .get("cwd")
+                .and_then(|item| item.as_value())
+                .and_then(|v| v.as_str()),
+            Some("/tmp/project")
+        );
+        assert_eq!(
+            table
+                .get("timeout")
+                .and_then(|item| item.as_value())
+                .and_then(|v| v.as_integer()),
+            Some(10)
+        );
+    }
 }

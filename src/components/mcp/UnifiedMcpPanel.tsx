@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Server, Check } from "lucide-react";
+import { Check, Edit3, Loader2, Plus, Server, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,7 +17,6 @@ import type { AppId } from "@/lib/api/types";
 import McpFormModal from "./McpFormModal";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { useDeleteMcpServer } from "@/hooks/useMcp";
-import { Edit3, Trash2 } from "lucide-react";
 import { settingsApi } from "@/lib/api";
 import { mcpPresets } from "@/config/mcpPresets";
 import { toast } from "sonner";
@@ -46,9 +45,19 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
   } | null>(null);
 
   // Queries and Mutations
-  const { data: serversMap, isLoading } = useAllMcpServers();
+  const {
+    data: serversMap,
+    isLoading,
+    isError,
+    error: queryError,
+    refetch,
+  } = useAllMcpServers();
   const toggleAppMutation = useToggleMcpApp();
   const deleteServerMutation = useDeleteMcpServer();
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(() => new Set());
 
   // Convert serversMap to array for easier rendering
   const serverEntries = useMemo((): Array<[string, McpServer]> => {
@@ -72,11 +81,27 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
     app: AppId,
     enabled: boolean,
   ) => {
+    if (togglingIds.has(serverId) || deletingIds.has(serverId)) {
+      return;
+    }
+
+    setTogglingIds((prev) => {
+      const next = new Set(prev);
+      next.add(serverId);
+      return next;
+    });
+
     try {
       await toggleAppMutation.mutateAsync({ serverId, app, enabled });
     } catch (error) {
       toast.error(t("common.error"), {
         description: String(error),
+      });
+    } finally {
+      setTogglingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(serverId);
+        return next;
       });
     }
   };
@@ -92,18 +117,34 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
   };
 
   const handleDelete = (id: string) => {
+    if (deletingIds.has(id)) {
+      return;
+    }
+
     setConfirmDialog({
       isOpen: true,
       title: t("mcp.unifiedPanel.deleteServer"),
       message: t("mcp.unifiedPanel.deleteConfirm", { id }),
       onConfirm: async () => {
         try {
+          setDeletingIds((prev) => {
+            const next = new Set(prev);
+            next.add(id);
+            return next;
+          });
+
           await deleteServerMutation.mutateAsync(id);
           setConfirmDialog(null);
           toast.success(t("common.success"));
         } catch (error) {
           toast.error(t("common.error"), {
             description: String(error),
+          });
+        } finally {
+          setDeletingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
           });
         }
       },
@@ -150,6 +191,29 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                 {t("mcp.loading")}
               </div>
+            ) : isError ? (
+              <div className="text-center py-12">
+                <div className="text-red-500 dark:text-red-400 font-medium">
+                  {t("mcp.loadFailed", {
+                    defaultValue: "Failed to load MCP servers",
+                  })}
+                </div>
+                {queryError && (
+                  <p className="mt-2 text-sm text-muted-foreground break-words">
+                    {queryError instanceof Error
+                      ? queryError.message
+                      : String(queryError)}
+                  </p>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => refetch()}
+                >
+                  {t("common.retry", { defaultValue: "Retry" })}
+                </Button>
+              </div>
             ) : serverEntries.length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
@@ -172,6 +236,8 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
                     key={id}
                     id={id}
                     server={server}
+                    isBusy={togglingIds.has(id) || deletingIds.has(id)}
+                    isDeleting={deletingIds.has(id)}
                     onToggleApp={handleToggleApp}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
@@ -232,6 +298,8 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
 interface UnifiedMcpListItemProps {
   id: string;
   server: McpServer;
+  isBusy: boolean;
+  isDeleting: boolean;
   onToggleApp: (serverId: string, app: AppId, enabled: boolean) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
@@ -240,6 +308,8 @@ interface UnifiedMcpListItemProps {
 const UnifiedMcpListItem: React.FC<UnifiedMcpListItemProps> = ({
   id,
   server,
+  isBusy,
+  isDeleting,
   onToggleApp,
   onEdit,
   onDelete,
@@ -310,8 +380,9 @@ const UnifiedMcpListItem: React.FC<UnifiedMcpListItemProps> = ({
               id={`${id}-claude`}
               checked={server.apps.claude}
               onCheckedChange={(checked: boolean) =>
-                onToggleApp(id, "claude", checked)
+                !isBusy && onToggleApp(id, "claude", checked)
               }
+              disabled={isBusy}
             />
           </div>
 
@@ -326,8 +397,9 @@ const UnifiedMcpListItem: React.FC<UnifiedMcpListItemProps> = ({
               id={`${id}-codex`}
               checked={server.apps.codex}
               onCheckedChange={(checked: boolean) =>
-                onToggleApp(id, "codex", checked)
+                !isBusy && onToggleApp(id, "codex", checked)
               }
+              disabled={isBusy}
             />
           </div>
 
@@ -342,8 +414,9 @@ const UnifiedMcpListItem: React.FC<UnifiedMcpListItemProps> = ({
               id={`${id}-gemini`}
               checked={server.apps.gemini}
               onCheckedChange={(checked: boolean) =>
-                onToggleApp(id, "gemini", checked)
+                !isBusy && onToggleApp(id, "gemini", checked)
               }
+              disabled={isBusy}
             />
           </div>
         </div>
@@ -367,8 +440,13 @@ const UnifiedMcpListItem: React.FC<UnifiedMcpListItemProps> = ({
             onClick={() => onDelete(id)}
             className="hover:text-red-500 hover:bg-red-100 dark:hover:text-red-400 dark:hover:bg-red-500/10"
             title={t("common.delete")}
+            disabled={isBusy}
           >
-            <Trash2 size={16} />
+            {isDeleting ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Trash2 size={16} />
+            )}
           </Button>
         </div>
       </div>
