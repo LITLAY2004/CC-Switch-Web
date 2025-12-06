@@ -449,12 +449,14 @@ impl SkillService {
             }
 
             let relative_path_obj = Path::new(relative_path);
-            let has_traversal = relative_path_obj
-                .components()
-                .any(|c| matches!(c, Component::ParentDir | Component::RootDir | Component::Prefix(_)))
-                || relative_path
-                    .split(['/', '\\'])
-                    .any(|segment| segment == "..");
+            let has_traversal = relative_path_obj.components().any(|c| {
+                matches!(
+                    c,
+                    Component::ParentDir | Component::RootDir | Component::Prefix(_)
+                )
+            }) || relative_path
+                .split(['/', '\\'])
+                .any(|segment| segment == "..");
 
             if relative_path_obj.is_absolute() || has_traversal {
                 return Err(anyhow!(format_skill_error(
