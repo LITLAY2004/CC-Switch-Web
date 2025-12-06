@@ -19,12 +19,12 @@ English | [中文](README_ZH.md) | [Changelog](CHANGELOG.md)
 
 Whether you're working locally or in a headless cloud environment, CC-Switch-Web offers a seamless experience for:
 
-- 🔄 **One-click provider switching** between OpenAI-compatible API endpoints
-- 🔌 **Unified MCP server management** across all three CLI tools
-- 📦 **Skills marketplace** to browse and install Claude skills from GitHub
-- 📝 **System prompt editor** with syntax highlighting
-- 💾 **Configuration backup/restore** with version history
-- 🌐 **Web server mode** for cloud/headless deployment with Basic Auth
+-  **One-click provider switching** between OpenAI-compatible API endpoints
+-  **Unified MCP server management** across all three CLI tools
+-  **Skills marketplace** to browse and install Claude skills from GitHub
+-  **System prompt editor** with syntax highlighting
+-  **Configuration backup/restore** with version history
+-  **Web server mode** for cloud/headless deployment with Basic Auth
 
 ---
 
